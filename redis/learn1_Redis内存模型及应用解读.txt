@@ -231,4 +231,95 @@ typedef struct redisObject {
        内层的哈希使用的内部编码可以是压缩列表(ziplist)和哈希表(hashtable)两种；Redis的外层的哈希则只使用了hashtable。
        与哈希表相比，压缩列表用于元素个数少、元素长度小的场景，其优势在于集中存储，节省空间。同时，虽然对于元素的操作复杂度也由O(n)变为了O(1),但由于哈希中元素数量较少，因此操作的时间并没有冥想劣势。
        hashtable: 一个hashtable由1个dict结构、2个dictht结构、1个dictEntry指针数组(称为bucket)和多个dictEntry结构组成。
-  
+       正常情況下，即hashtable沒有进行rehash时，各部分关系如下图所示：
+       https://mmbiz.qpic.cn/mmbiz_png/tibrg3AoIJTvF2PcqM0ZZaGyKOT2zKc5M1g4FMSve2hmvlHBDYJqgicic2QelcG54U2tOicib8Ga2JLicp8FDWicfyTdg/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1
+       ·dictEntry
+        dictEntry 结构用于保存键值对，结构定义如下：
+        	typedef struct dictEntry{
+   			 void *key;
+    			 union{
+        			void *val;
+        			uint64_tu64;
+        			int64_ts64;
+    			 }v;
+    			  struct dictEntry *next;
+		}dictEntry;
+         其中，各个属性的功能如下：
+             ·key:键值对中的键
+             ·val:键值对中的值，使用union(即共用体)实现，存储的内容既可能是一个指向值的指针，也可能是64位整型，或无符号64位整型；
+             ·next:指向下一个dictEntry，用于解决哈希冲突问题
+             ·在64位系统中，一个dictEntry对象占24字节(key/val/next各占8字节).
+        ·bucket是一个数组，数组的每个元素都是指向dictEntry结构的指针。Redis中bucket数组的大小计算规则如下：大于dictEntry的，最小的2^n.例如，如果有1,000个dictEntry,那么bucket大小为2014；如果有1500个dictEntry,则bucket大小为2048.
+        ·dictht
+         dictht结构如下：
+          typedef struct dictht{
+    		dictEntry **table;
+    		unsigned long size;
+    		unsigned long sizemask;
+    		unsigned long used;
+	   }dictht;
+         其中，各个属性的功能说明如下：
+             ·table属性是一个指针，指向bucket；
+             ·size属性记录了哈希表的大小，即bucket的大小；
+             ·used记录了已使用的dictEntry的数量；
+             ·sizemask属性的值总是为size-1,这个属性和哈希值一起决定一个键在table中存储的位置。
+        ·dict
+         一般来说，通过使用dictht和dictEntry结构，便可以实现普通哈希表的功能;但是Redis的实现中，在dictht结构的上层，还有一个dict结构。下面说明dict结构的定义以及作用。
+         dict结构如下：
+         typedef struct dict{
+		dictType *type;
+    		void *privdata;
+    		dictht ht[2];
+    		int trehashidx;
+	 } dict;
+         其中，type和privdata属性是为了适应不同类型的键值对，用于创建多态字典。
+         ht和trehashidx属性则用于rehash,即当哈希表需要扩展或收缩时使用。
+         ht是一个包含两个项的数组，每项都指向一个dictht结构，这也是Redis的哈希会有1个dict，2个dictht结构的原因。通常情况下，所有的数据都是存在dict的ht[0]中，ht[1]只在rehash的时候使用。dict进行rehash操作的时候，将ht[0]中的所有数据rehash到ht[1]中。然后将ht[1]复制给ht[0],并清空ht[1]。
+         因此，Redis中的哈希之所以在dictht和dictEntry结构之外还有一个dict结构，一方面是为了适应不同类型的键值对，另一方面是为了rehash.
+      (3)编码转换
+         如前所述，Redis中内层的哈希既可能使用哈希表，也可能使用亚索列表。
+         只有同时满足下面两个条件时，才会使用亚索列表：
+           · 哈希中元素数量少于512个
+           ·哈西中所有键值对的键和值字符串长度都少于64字节。
+         如果有一个条件不满足，则使用哈希表；且编码只可能由压缩列表转化为哈希表，反方向则不可能。
+         下图展示了Redis内层的哈希编码转换的特点：
+          https://mmbiz.qpic.cn/mmbiz_png/tibrg3AoIJTvF2PcqM0ZZaGyKOT2zKc5MxOIcPFTrZZUK1n6yVDiaKcgibobOI7Xmpqh8fUA79iaGnb5EhZicywt29A/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1
+     4.集合
+        (1)概况
+           集合(Set)与列表类似，都是用来保存多个字符串，但集合与列表有两点不同：集合中的元素是无需的，因此不能通过索引来操作元素；集合中的元素不能有重复的。
+           一个集合中最多可以存储2^32-1个元素，除了支持常规的增删改查，Redis还支持多个集合取交集、并集、差集。
+        (2)内部编码
+           集合的内部编码可以是正数集合(intset)或哈希表(hashtable).
+           集合在使用哈希表时，值全部被置为null.
+           整数集合的结构定义如下：
+     		typedef struct intset{
+    			uint32_t encoding;
+    			uint32_t length;
+    			int8_t contents[];
+		} intset;
+           其中，encoding代表contents中存储内容的类型，虽然contents(存储集合中的元素)是int8_t类型，但实际上其存储的值是int16_t,int32_t或int64_t，具体的类型便是由encoding决定的。length表示元素个数。
+          整数集合使用于集合所有元素都是整数且集合元素数量较小的时候，与哈希表相比，整数集合的优势在于集中存储，节省空间；同时，虽然对于元素的操作复杂度也由O(n)变为了O(1)，但由于集合数量较少，因此操作的时间并没有明显劣势。
+         (3)编码转换
+           只有同时满足下面2个条件时，集合才会使用整数集合：
+           ·集合中元素数量小于512个；
+           ·集合中所有元素都是整数值。
+         如果有一个条件不满足，则使用哈希表；且编码只可能由整数集合转化为哈希表，反方向则不可能。
+         下图展示了集合编码转换的特点：
+         https://mmbiz.qpic.cn/mmbiz_png/tibrg3AoIJTvF2PcqM0ZZaGyKOT2zKc5MyBKu8eTCvkRHEMQ5JTVccLBEQ2ibcUwib2bRS1W1LIdEmoY1DjzIQsmw/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1
+    5.有序集合
+      (1)概况
+         有序集合与集合一样，元素都不能重复。但与集合不同的是，有序集合中的元素是有顺序的。与列表使用索引下标作为排序依据不同，有序集合为每个元素设置一个分数(score)作为排序依据。
+      (2)内部编码
+         有序集合的内部编码可以是压缩列表(ziplist)或跳跃表(skiplist).ziplist在列表和哈希中都有使用，略
+         跳跃表是一种有序数据结构，通过在每个节点中维持多个指向其他节点的指针，从而达到快速访问节点的目的。
+         除了跳跃表，实现有序数据结构的另一种典型实现是平衡树；大多数情况下，跳跃表的效率可以和平衡树媲美，切跳跃表实现比平衡树简单很多，因此Redis中选用跳跃表代替平衡树。
+        跳跃表支持平均O(logN),最坏O(N)的复杂点进行节点查找，并支持顺序操作。Redis的跳跃表实现由zskiplist和zskiplistNode两个结构组成：前者用于保存跳跃表信息(如头结点，尾节点，长度等)，后者用于表示跳跃表节点。具体结构相对复杂，略。
+      (3)编码转换
+         只有同时满足下面两个条件时，才使用压缩列表：
+          ·有序集合中元素数量小于128个
+          ·有序集合中所有成员长度都不足64字节。
+         若果有一个条件不满足，则使用跳跃表；且编码只可能由压缩列表转化为跳跃表，反方向则不可能。
+         下图展示了有序集合编码转换的特点：
+          https://mmbiz.qpic.cn/mmbiz_png/tibrg3AoIJTvF2PcqM0ZZaGyKOT2zKc5M2ZMXO4GSS6030JLOD46xWRqqQjxuAFcuzrtkSAxO98JWticyflee7mw/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1
+七。应用举例
+ 

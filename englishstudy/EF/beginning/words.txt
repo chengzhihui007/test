@@ -1,0 +1,263 @@
+再见 exclamation
+bye
+他(代词) pronoun
+he
+你好(用于打招呼) exclamation,noun
+hello
+你好 exclamation
+hi
+电话 noun
+phone
+培训基地 noun
+school
+她 pronoun
+she
+学生 noun
+student
+电话 noun
+telephone
+他们，它们 pronoun
+they
+你，你们 pronoun
+you
+书，书籍 noun
+book
+椅子 noun
+chair
+电脑 noun
+computer
+可爱的，漂亮的 adjective
+cute
+电梯 noun
+elevator
+头戴耳机 noun
+headphones
+她的 determiner
+her
+他的(所有格) determiner
+his
+(打字机，电脑等的)键盘 noun
+keyboard
+厨房 noun
+kitchen
+话筒 noun
+microphone
+老鼠，鼠标 noun
+mouse
+笔记本 noun
+notebook
+办公室 noun
+office
+钢笔 noun
+pen
+铅笔 noun
+pencil
+窗户，视窗，窗口，橱窗 noun
+window
+美洲的;(尤指)美国的  adjective
+American
+澳大利亚的  adjective
+Australian
+令人厌烦的，无聊的  adjectvie
+boring
+英国的 adjective
+British
+建筑，建筑物 noun
+building
+城市 noun
+city
+国家 noun
+country
+拥挤的 adjective
+crowded
+令人兴奋的 adjective
+exciting
+法国的，法国人的，法语的  adjective
+French
+博物馆，展览馆 noun
+museum
+公园 noun
+park
+餐馆，餐厅 noun
+restaurant
+商店 noun
+shop
+美国，美利坚合众国 noun
+United States (Of America)
+建筑师 noun
+architect
+艺术家 noun
+artist
+黑色的 adjective
+black
+天蓝色的 adjective
+blue
+老板，领导 noun
+boss
+棕色的，褐色的 adjective
+brown
+衣服  noun
+clothes
+医生 noun
+doctor
+耳朵 noun
+ear
+工程师 noun
+engineer
+眼睛，眼珠 noun
+eye
+脸，脸庞 noun
+face
+家庭 noun
+family
+父亲 noun
+father
+消防队员
+firefighter
+爷爷，外公 noun
+grandfather
+奶奶，外婆 noun
+grandmother
+绿的，绿色的 adjective
+green
+头发，毛发  noun
+hair
+头部 noun
+head
+丈夫 noun
+husband
+主管，经理，负责人 noun
+manager
+母亲，妈妈  noun
+mother
+口  noun
+mouth
+鼻子 noun
+nose
+红色的 adjective
+red
+秘书 noun
+secretary
+微笑，笑容 noun
+smile
+教师，老师 noun
+teacher
+不快乐的，不高兴的，不幸福的，不满的 adjective
+unhappy
+妻子，太太 noun
+wife
+婴儿 noun
+baby
+便宜的 adjective
+cheap
+棉花 noun
+cotton
+美元 noun
+dollar
+裙子，连衣裙 noun
+dress
+第一 determiner,ordinal number
+first
+走 verb
+go
+家 noun
+home
+短上衣，夹克 noun
+jacket
+牛仔裤，粗斜纹棉布裤，工装裤 noun
+jeans
+裤子 noun
+pants
+粉红色的，淡红色的 adjective
+pink
+紫色的  adjective
+purple
+第二的  determiner, ordinal number
+second
+衬衫 noun
+shirt
+鞋子 noun
+shoe
+裙子 noun
+skirt
+短袜，袜子 noun
+sock
+毛衣，毛绒衫，运动衫 noun
+sweater
+第三  ordinal  number
+third
+短袖圆领衫 noun
+T-shirt
+白色的  adjective
+white
+女人，妇女，女性 noun
+woman
+黄色的 adjective
+yellow
+苹果 noun 
+apple
+可怕的，糟糕的  adjective
+awful
+袋子，包，书包  noun
+bag
+香蕉 noun
+banana
+面包 noun
+bread
+蛋糕，糕饼 noun
+cake
+胡萝卜 noun
+carrot
+奶酪 noun
+cheese
+鸡 noun
+chicken
+巧克力 noun
+chocolate
+咖啡  noun
+coffee
+甜点  noun
+dessert
+饮料 noun
+drink
+蛋，卵 noun
+egg
+鱼 noun
+fish
+水果 noun
+fruit
+饥饿的，饿的 adjective
+hungry
+冰激凌 noun
+ice cream
+刀，小刀，菜刀，手术刀，匕首 noun
+knife
+肉 noun
+meat
+乳，牛奶 noun
+milk
+面条  noun
+noodle
+意大利面，通心粉 noun
+pasta
+披萨 noun
+pizza
+稻，米 noun
+rice
+沙拉，色拉 noun
+salad
+咸的，咸味的  adjective
+salty
+三明治  noun
+sandwich
+汤 noun
+soup
+辛辣的，香的 adjective
+spicy
+茶，茶叶 noun
+tea
+番茄，西红柿  noun
+tomato
+蔬菜，植物 noun
+vegetable
+

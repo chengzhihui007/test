@@ -1,0 +1,93 @@
+参考网址：https://blog.csdn.net/li90hou/article/details/79711534
+# 创建一个独立目录
+mkdir /home/software/redis-cluster
+
+# 进入目录
+cd /home/software/redis-cluste
+
+# 在 redis-cluster 目录中以端口好为名，创建 6 个目录
+mkdir 7000 7001 7002 7003 7004 7005
+
+ # 进入 Redis 安装主目录，拷贝一份配置文件
+cp redis.conf redis-cluster.conf
+
+# 修改配置文件
+vim redis-cluster.conf
+
+ # 找到 bind 127.0.0.1 并注释掉
+#bind 127.0.0.1
+
+# 找到 protected-mode yes，修改
+protected-mode no
+
+# 找到 "# cluster-enabled yes"，取消注释
+cluster-enabled yes
+
+# 找到 "# cluster-config-file nodes-6379.conf"，取消注释，修改
+cluster-config-file nodes.conf
+
+# 找到 "# cluster-node-timeout 15000"，取消注释，修改
+cluster-node-timeout 5000
+
+# 找到 appendonly no，修改
+appendonly yes
+ 
+ 
+ cp redis-cluster.conf /home/software/redis-cluster/7000
+cp redis-cluster.conf /home/software/redis-cluster/7001
+cp redis-cluster.conf /home/software/redis-cluster/7002
+cp redis-cluster.conf /home/software/redis-cluster/7003
+cp redis-cluster.conf /home/software/redis-cluster/7004
+cp redis-cluster.conf /home/software/redis-cluster/7005
+ 
+ 
+ cd /home/software/redis-cluster/7000
+vim redis-cluster.conf
+
+修改端口
+port 7000
+
+ 分别进入 7000 7001 7002 7003 7004 7005，执行启动命令
+redis-server redis-cluster.conf &
+全部启动后执行以下命令
+
+# 看到如图显示，启动成功
+ps -aux|grep redis
+--------------------------- -------------------------
+安装ruby,
+yum ruby
+yum gem
+如果报错需要升级ruby:
+ 
+ 1、sudo yum install curl  安装curl
+ 2、http://www.rvm.io/ 官网首页就可以看到 
+ gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+ 3、下载rvm   \curl -sSL https://get.rvm.io | bash -s stable 
+ 4、查找配置文件 find / -name rvm.sh 
+ 5、配置文件生效 source /etc/profile.d/rvm.sh 
+ 6、下载rvm依赖 rvm requirements 
+ 7、查看rvm库ruby版本 rvm list known
+ 8、安装ruby指定版本 rvm install ruby-2.4.1
+ 9、使用ruby版本默认 rvm use 2.4.1 default
+
+ 10、gem install redis
+
+
+yum install centos-release-scl 
+yum --enablerepo=centos-sclo-rh -y install rh-ruby23
+# 查看版本
+ruby -v
+gem install redis.
+
+
+#进入Redis 主目录src目录中执行
+ ./redis-trib.rb create --replicas 1 127.0.0.1:7000 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 127.0.0.1:7004 127.0.0.1:7005
+
+如图，输入"yes"，开始创建集群
+https://img-blog.csdn.net/20180327143150142?watermark/2/text/aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2xpOTBob3U=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70
+创建成果后，查看所有节点
+ redis-cli -p 7000 cluster nodes
+可以看到如图：
+		https://img-blog.csdn.net/20180327143935664?watermark/2/text/aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2xpOTBob3U=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70
+
+参考网址：https://blog.csdn.net/li90hou/article/details/79711534

@@ -1,0 +1,55 @@
+准备工作：
+yum -y gcc
+redis下载网址：  http://download.redis.io/releases
+tcl下载地址:http://downloads.sourceforge.net/tcl/
+sudo tar xzvf tcl8.6.1-src.tar.gz  -C /usr/local/
+cd  /usr/local/tcl8.6.1/unix/
+sudo ./configure
+sudo make
+sudo make install
+
+-------------------------------------------------
+参考网址：http://download.redis.io/releases
+# 解压
+tar -zxvf redis-4.0.8.tar.gz
+
+# 进入 redis 主目录
+cd redis-4.0.8
+
+# 编译，编译完成后，Redis 已经可以运行 src/redis-server
+make 
+ps:如果报错运行 make  MALLOC=libc
+
+# 如果想要在任何目录都可以执行 Redis 命令，执行以下命令进行安装
+make install
+# 启动 Redis 服务，后台启动：redis-server &
+redis-server
+# 连接本机 Redis
+redis-cli
+
+# 存入数据 set [key] [value]
+set foo bar
+
+# 获取数据 get [key]
+get foo
+
+允许其他机器访问
+# 进入 Redis 主目录，其中 redis.conf 是 Redis 的配置文件，修改前先进行备份
+cp redis.conf redis.conf.bak
+
+# 编辑配置文件
+vim redis.conf
+ # 注释掉 bind 127.0.0.1
+# bind 127.0.0.1
+
+# 修改保护模式 protected-mode yes，默认启用保护模式，在没有注释掉 bind 和没有设置密码的情况下，只允许本机客户端连接
+protected-mode no
+
+# 可以通过 requirepass 选项设置密码。如果设置了密码，通过 redis-cli -a mypassword 指定密码登录
+# requirepass mypassword
+# 修改配置文件后，启动时指定配置文件
+redis-server redis.conf 
+
+下载并安装 Redis Desktop Manager 客户端工具：https://redisdesktop.com/download
+Redis官网 https://redis.io/community 
+

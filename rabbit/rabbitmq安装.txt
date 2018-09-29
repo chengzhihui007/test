@@ -1,0 +1,122 @@
+yum -y install socat
+ wget http://www.rabbitmq.com/releases/erlang/erlang-19.0.4-1.el7.centos.x86_64.rpm
+rpm -ivh  erlang-19.0.4-1.el7.centos.x86_64.rpm
+erl
+wget  http://www.rabbitmq.com/releases/rabbitmq-server/v3.6.10/rabbitmq-server-3.6.10-1.el7.noarch.rpm
+ rpm -ivhrabbitmq-server-3.6.10-1.el7.noarch.rpm
+---------------------------------
+systemctl start rabbitmq-server
+或者
+rabbitmq-server -detached //启动rabbitmq, - detached代表后台守护进程方式启动
+查看rabbitmq启动后的情况：
+rabbitmqctl status
+其他相关命令
+启动服务：rabbitmq-server -detached【/usr/local/rabbitmq/sbin/rabbitmq-server -detached 】
+查看状态：rabbitmqctl status【/usr/local/rabbitmq/sbin/rabbitmqctl status 】
+关闭服务：rabbitmqctl stop【/usr/local/rabbitmq/sbin/rabbitmqctl stop 】
+列出角色：rabbitmqctl list_users
+---------------------------------------
+mkdir /etc/rabbitmq
+rabbitmq-plugins enablerabbitmq_management
+firewall-cmd --permanent--add-port=15672/tcp
+firewall-cmd --permanent--add-port=5672/tcp
+systemctl restart firewalld.service
+Centos 7 的特性，需要注册开放的端口进防火墙，并重启防火墙。
+----------------------------------------------------
+添加 Virtual Hosts ：  rabbitmqctl add_vhost <vhost>    
+删除 Virtual Hosts ：  rabbitmqctl delete_vhost <vhost>    
+添加 Users ：  rabbitmqctl add_user <username> <password>  
+				rabbitmqctl set_user_tags <username> <tag> ...  
+				rabbitmqctl set_permissions [-p <vhost>] <user> <conf> <write> <read>    
+删除 Users ：  delete_user <username> 
+
+user 有5种 tags ：
+	management ：访问 management plugin；  
+	policymaker ：访问 management plugin 和管理自己 vhosts 的策略和参数；  
+	monitoring ：访问 management plugin 和查看所有配置和通道以及节点信息；  
+	administrator ：一切权限；  
+	None ：无配置   
+
+例子：	rabbitmqctl add_vhost vh  
+		rabbitmqctl add_user test test  
+		rabbitmqctl set_user_tags test management  
+		rabbitmqctl set_permissions -p vh test ".*" ".*" ".*"      
+		#更多命令查看：rabbitmqctl --help 
+		
+		rabbitmqctl add_vhost demaxiya  
+		rabbitmqctl add_user demaxiya demaxiya  
+		rabbitmqctl set_user_tags demaxiya administrator  
+		rabbitmqctl set_permissions -p demaxiya demaxiya ".*" ".*" ".*"  
+默认 “guest” 用户只允许本地访问，其他账户不受限制。
+-------------------------------------------------
+访问： IP:15672
+-----------------------------------
+其他配置：
+开启用户远程访问默认情况下，RabbitMQ的默认的guest用户只允许本机访问， 
+如果想让guest用户能够远程访问的话，只需要将配置文件中的loopback_users列表置为空即可，
+如下：
+{loopback_users, []} 
+另外关于新添加的用户，直接就可以从远程访问的，如果想让新添加的用户只能本地访问，可以将用户名添加到上面的列表, 如只允许admin用户本机访问。
+{loopback_users, ["admin"]}  
+RabbitMQ用户角色及权限控制
+1.RabbitMQ的用户角色分类：none、management、policymaker、monitoring、administrator
+2.RabbitMQ各类角色描述：none不能访问management 
+						pluginmanagement用户可以通过AMQP做的任何事外加：列出自己可以通过AMQP登入的virtual hosts  
+																查看自己的virtualhosts中的queues,exchanges 和 bindings查看和关闭自己的channels和 
+																connections查看有关自己的virtualhosts的“全局”的统计信息，
+																包含其他用户在这些virtual hosts中的活动。
+						policymaker management可以做的任何事外加：查看、创建和删除自己的virtualhosts所属的policies和parametersmonitoring  
+						management可以做的任何事外加：列出所有virtualhosts，包括他们不能登录的virtualhosts查看其他用户的connections
+														和channels查看节点级别的数据如clustering和memory使用情况查看真正的关于所有virtualhosts的
+														全局的统计信息administrator  
+						policymaker和monitoring可以做的任何事外加:创建和删除virtualhosts查看、创建和删除users查看创建和删除permissions
+												关闭其他用户的connections
+3.创建用户并设置角色：可以创建管理员用户，负责整个MQ的运维，例如：
+					$sudo rabbitmqctl add_user  user_admin  passwd_admin  
+					赋予其administrator角色：
+					$sudo rabbitmqctl set_user_tags user_admin administrator  
+					
+					可以创建RabbitMQ监控用户，负责整个MQ的监控，例如：
+					$sudo rabbitmqctl add_user  user_monitoring  passwd_monitor  
+					赋予其monitoring角色：
+					$sudo rabbitmqctl set_user_tags user_monitoring monitoring  
+					
+					可以创建某个项目的专用用户，只能访问项目自己的virtual hosts
+					$sudo rabbitmqctl  add_user  user_proj  passwd_proj  
+					赋予其monitoring角色：
+					$sudo rabbitmqctl set_user_tags user_proj management  
+					
+					创建和赋角色完成后查看并确认：
+					$sudo rabbitmqctl list_users  
+4.RabbitMQ权限控制默认virtual 
+					host："/"默认用户：guest guest具有"/"上的全部权限，
+					仅能有localhost访问RabbitMQ包括Plugin，建议删除或更改密码。
+					可通过将配置文件中loopback_users置孔来取消其本地访问的限制：
+					[{rabbit, [{loopback_users, []}]}]
+					用户仅能对其所能访问的virtualhosts中的资源进行操作。
+					
+					这里的资源指的是virtual hosts中的exchanges、queues等，操作包括对资源进行配置、写、读。
+					配置权限可创建、删除、资源并修改资源的行为，写权限可向资源发送消息，读权限从资源获取消息。
+					比如：exchange和queue的declare与delete分别需要exchange和queue上的配置权限
+							exchange的bind与unbind需要exchange的读写权限
+							queue的bind与unbind需要queue写权限
+							exchange的读权限发消息(publish)需exchange的写权限获取或清除(get、consume、purge)消息需queue的读权限
+							对何种资源具有配置、写、读的权限通过正则表达式来匹配，
+							具体命令如下：
+							set_permissions [-p <vhostpath>] <user> <conf> <write><read>
+							其中，<conf><write> <read>的位置分别用正则表达式来匹配特定的资源，
+							如'^(amq\.gen.*|amq\.default)$'可以匹配server生成的和默认的exchange，
+							'^$'不匹配任何资源需要注意的是RabbitMQ会缓存每个connection或channel的权限验证结果、
+							因此权限发生变化后需要重连才能生效。
+							为用户赋权：$sudo rabbitmqctl  set_permissions -p /vhost1  user_admin '.*' '.*''.*'  
+							该命令使用户user_admin具有/vhost1这个virtual host中所有资源的配置、写、读权限以便管理其中的资源
+							 
+							查看权限:$sudo rabbitmqctl list_user_permissions user_admin  
+							Listing permissions for user "user_admin" ...  /vhost1
+							<span style="white-space:pre"> </span>.*<spanstyle="white-space:pre"> </span>.*<spanstyle="white-space:pre"> </span>.*  
+							
+							$sudo rabbitmqctl list_permissions -p /vhost1  
+							Listing permissions in vhost "/vhost1" ...  
+							user_admin<span style="white-space:pre"> </span>.*<span style="white-space:pre"></span>.*<span style="white-space:pre"></span>.* 
+
+

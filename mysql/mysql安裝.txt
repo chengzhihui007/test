@@ -1,0 +1,73 @@
+参考网址：https://www.linuxidc.com/Linux/2016-09/135288.htm
+MYSQL的YUM源http://dev.mysql.com/downloads/repo/yum/  
+yum localinstall XXX.rpm
+yum repolist enabled | grep "mysql.*-community.*"
+可以修改vim /etc/yum.repos.d/mysql-community.repo源，改变默认安装的mysql版本。比如要安装5.6版本，将5.7源的enabled=1改成enabled=0。然后再将5.6源的enabled=0改成enabled=1即可.
+效果图：
+	https://www.linuxidc.com/upload/2016_09/160918124758197.jpg
+yum install mysql-community-server
+
+systemctl start mysqld
+
+systemctl status mysqld
+
+systemctl enable mysqld
+
+systemctl daemon-reload
+---------------------------------
+修改密码：
+	grep 'temporary password' /var/log/mysqld.log 
+	mysql -uroot -p
+	ALTER USER 'root'@'localhost' IDENTIFIED BY 'MyNewPass4!';
+	show variables like '%password%';
+	validate_password_policy：密码策略，默认为MEDIUM策略 
+validate_password_dictionary_file：密码策略文件，策略为STRONG才需要 
+validate_password_length：密码最少长度 
+validate_password_mixed_case_count：大小写字符长度，至少1个 
+validate_password_number_count ：数字至少1个 
+validate_password_special_char_count：特殊字符至少1个 
+上述参数是默认策略MEDIUM的密码检查规则。
+
+共有以下几种密码策略：
+
+
+策略
+
+检查规则
+
+
+0 or LOW Length 
+1 or MEDIUM Length; numeric, lowercase/uppercase, and special characters 
+2 or STRONG Length; numeric, lowercase/uppercase, and special characters; dictionary file 
+
+MySQL官网密码策略详细说明：http://dev.mysql.com/doc/refman/5.7/en/validate-password-options-variables.html#sysvar_validate_password_policy
+ 修改密码策略
+
+在/etc/my.cnf文件添加validate_password_policy配置，指定密码策略
+# 选择0（LOW），1（MEDIUM），2（STRONG）其中一种，选择2需要提供密码字典文件
+validate_password_policy=0
+
+如果不需要密码策略，添加my.cnf文件中添加如下配置禁用即可：
+validate_password = off
+
+重新启动mysql服务使配置生效：
+systemctl restart mysqld
+-------------------------------------------------
+添加远程登录用户
+create user 'test'@'%' identified by '1qaz2WSX#'; 
+grant all privileges on *.* to 'test'@'%' with grant option;
+FLUSH PRIVILEGES; 
+select * from user;
+----------------------------------------
+配置默认编码为utf8
+修改/etc/my.cnf配置文件，在[mysqld]下添加编码配置，如下所示：
+[mysqld]
+character_set_server=utf8
+init_connect='SET NAMES utf8'
+查看编码命令：
+	show variables like '%character%';
+默认配置文件路径：
+配置文件：/etc/my.cnf 
+日志文件：/var/log//var/log/mysqld.log 
+服务启动脚本：/usr/lib/systemd/system/mysqld.service 
+socket文件：/var/run/mysqld/mysqld.pid 

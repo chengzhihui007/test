@@ -1,0 +1,20 @@
+cd /etc/init.d/ 
+touch zookeeper
+chmod +x zookeeper
+#编辑
+vim zookeeper
+*使用service zookeeper start/stop命令来尝试启动关闭zookeeper，使用service zookeeper status查看zookeeper状态。
+
+先来看启动及状态*
+
+添加到开机自启
+
+chkconfig --add zookeeper1
+
+
+添加完之后，我们使用chkconfig –list来查看开机自启的服务中是否已经有我们的zookeeper了，如下所示，可以看到在最后一行便是我们的zookeeper服务了。
+
+
+*
+
+

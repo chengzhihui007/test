@@ -1,0 +1,12 @@
+#!/bin/bash
+#chkconfig:2345 20 90
+#description:zookeeper
+#processname:zookeeper
+# export JAVA_HOME=//usr/java/jdk1.8.0_112  --这个不用设置，如果你有设置过java home的话
+case $1 in 
+        start) sudo /usr/loca/services/zookeeper/zookeeper-3.4.9/bin/zkServer.sh start;; 
+        stop) sudo /usr/loca/services/zookeeper/zookeeper-3.4.9/bin/zkServer.sh stop;; 
+        status) sudo /usr/loca/services/zookeeper/zookeeper-3.4.9/bin/zkServer.sh status;; 
+        restart) sudo /usr/loca/services/zookeeper/zookeeper-3.4.9/bin/zkServer.sh restart;; 
+        *) echo "require start|stop|status|restart" ;;
+esac

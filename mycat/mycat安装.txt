@@ -1,0 +1,19 @@
+1.环境准备
+1)JDK下载
+http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html
+2)Mysql下载
+http://dev.mysql.com/downloads/mysql/5.5.html#downloads
+注: MyCAT支持多种数据库接入，如：MySQL、SQLServer、Oracle、MongoDB等，推荐使用MySQL做集群。
+3)MyCAT项目主页
+https://github.com/MyCATApache/
+注：MyCAT相关源码、文档都可以在此地址下进行下载。
+2.环境安装与配置
+1)MYCAT-Server源码下载
+MyCAT-Server仓库地址： https://github.com/MyCATApache/Mycat-Server.git
+2)源码调试与配置
+·MYCAT_HOME/conf/schema.xml中定义逻辑库，表，分片节点等内容。
+·MYCAT_HOME/conf/rule.xml中定义分片规则。
+·MYCAT_HOME/conf/server.xml中定义用于以及系统相关变量，如端口等。
+注：以上几个文件的具体配置请参考前面章节中的具体说明。
+3)源码运行
+MyCAT入口程序是org.opencloudb.MycatStartup.java。

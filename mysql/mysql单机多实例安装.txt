@@ -1,0 +1,497 @@
+参考网址： http://blog.51cto.com/13707680/2112502
+第一步：
+
+1）安装MySQL所需的依赖包
+
+yum install ncurses-devel libaio-devel -y
+
+yum install cmake -y
+
+2）获取MySQL二进制包以及安装
+
+useradd -s /sbin/nologin  -M mysql
+
+id mysql
+
+wget http://dev.mysql.com/get/Downloads/MySQL-5.5/mysql-5.5.32-linux2.6-x86_64.tar.gz 解压并创建软连接（这是二进制安装包，仅需要解压就可以，不需要cmake/configure，make&&make install等过程）
+
+tar xf mysql-5.5.32-linux2.6-x86_64.tar.gz
+
+mkdir -p /application/
+
+mv mysql-5.5.32-linux2.6-x86_64  /application/mysql-5.5.32
+
+ln -s /application/mysql-5.5.32/ /application/mysql
+
+cd /application/mysql
+
+ls -l support-files/*.cnf
+
+
+第二步：创建MySQL多实例的数据文件目录以及配置文件
+
+
+
+mkdir -p /data/{3306,3307}/data
+
+
+cd /data/3306
+
+[root@localhost 3306]# cat my.cnf 
+
+[mysqld]
+
+basedir=/application/mysql
+
+datadir=/data/3306
+
+socket=/data/3306/mysql.sock
+
+log-error=/data/3306/mysqlerr.log
+
+log_bin=/data/3306/mysql-bin
+
+binlog_format=row
+
+skip_name_resolve=1
+
+server_id=3306
+
+port=3306
+
+
+cd /data/3307
+
+[root@localhost 3307]# cat my.cnf 
+
+[mysqld]
+
+basedir=/application/mysql
+
+datadir=/data/3307
+
+socket=/data/3307/mysql.sock
+
+log-error=/data/3307/mysqlerr.log
+
+log_bin=/data/3307/mysql-bin
+
+binlog_format=row
+
+skip_name_resolve=1
+
+server_id=3307
+
+port=3307
+
+#实际工作中我们都是拿早已配置好的模板来进行修改的，这里用醉简单的模板来做演示
+
+
+
+
+
+
+
+
+
+
+
+
+
+第三步：创建MySQL多实例的启动文件
+
+cd /data/3306
+
+[root@localhost 3306]# cat mysqld
+
+. /etc/init.d/functions
+
+. /etc/profile
+
+
+Start='/application/mysql/bin/mysqld_safe --defaults-file=/data/3306/my.cnf --pid-file=/data/3306/3306.pid'
+
+Stop='mysqladmin -uroot -S /data/3306/mysql.sock shutdown'
+
+Port=`ss -tunlp|grep 3306|wc -l`
+
+  
+
+function START(){
+
+ if [ $Port -ne 1 ];then
+
+  $Start >/dev/null 2>&1 &
+
+  sleep 3
+
+  if [ $? -eq 0 ];then
+
+   action 'MySQL 3306 Starting' /bin/true
+
+  fi
+
+ else
+
+  action 'MySQL 3306 Already Exists' /bin/true
+
+ fi
+
+}
+
+function STOP(){
+
+ if [ $Port -ne 0 ];then
+
+  $Stop
+
+  if [ $? -eq 0 ];then
+
+   action 'MySQL Stoping Successfuly' /bin/true
+
+  fi
+
+ else
+
+  action 'MySQL already Stoped' /bin/true
+
+ fi
+
+}
+
+function RESTART(){
+
+ STOP
+
+ sleep 1
+
+ START
+
+}
+
+case $1 in
+
+start)
+
+ START
+
+ ;;
+
+stop)
+
+ STOP
+
+ ;;
+
+restart)
+
+ RESTART
+
+ ;;
+
+*)
+
+ echo "Usage: $0 {start|stop|restart}"
+
+ ;;
+
+esac
+
+
+cd /data/3307
+
+[root@localhost 3307]# cat mysqld
+
+
+. /etc/init.d/functions
+
+. /etc/profile
+
+
+Start='/application/mysql/bin/mysqld_safe --defaults-file=/data/3307/my.cnf --pid-file=/data/3307/3307.pid'
+
+Stop='mysqladmin -uroot -S /data/3307/mysql.sock shutdown'
+
+Port=`ss -tunlp|grep 3307|wc -l`
+
+  
+
+function START(){
+
+ if [ $Port -ne 1 ];then
+
+  $Start >/dev/null 2>&1 &
+
+  sleep 3
+
+  if [ $? -eq 0 ];then
+
+   action 'MySQL 3307 Starting' /bin/true
+
+  fi
+
+ else
+
+  action 'MySQL 3307 Already Exists' /bin/true
+
+ fi
+
+}
+
+function STOP(){
+
+ if [ $Port -ne 0 ];then
+
+  $Stop
+
+  if [ $? -eq 0 ];then
+
+   action 'MySQL Stoping Successfuly' /bin/true
+
+  fi
+
+ else
+
+  action 'MySQL already Stoped' /bin/true
+
+ fi
+
+}
+
+function RESTART(){
+
+ STOP
+
+ sleep 1
+
+ START
+
+}
+
+case $1 in
+
+start)
+
+ START
+
+ ;;
+
+stop)
+
+ STOP
+
+ ;;
+
+restart)
+
+ RESTART
+
+ ;;
+
+*)
+
+ echo "Usage: $0 {start|stop|restart}"
+
+ ;;
+
+esac
+
+
+
+步骤三：配置文件权限和软链接
+
+[root@localhost 3307]# chown -R mysql.mysql /data/
+
+[root@localhost 3307]# find /data/ -name mysqld|xargs ls -l
+
+-rw-r--r--. 1 mysql mysql 794 May  3 11:55 /data/3306/mysqld
+
+-rw-r--r--. 1 mysql mysql 794 May  3 11:55 /data/3307/mysqld
+
+[root@localhost 3307]# find /data/ -name mysqld|xargs chmod 700
+
+[root@localhost 3307]# ln -s  /application/mysql/bin/*  /usr/local/sbin/
+
+
+步骤四：初始化MySQL多实例的数据库文件
+
+cd /application/mysql/scripts
+
+./mysql_install_db  --basedir=/application/mysql --datadir=/data/3306 --user=mysql
+
+./mysql_install_db  --basedir=/application/mysql --datadir=/data/3307 --user=mysql
+
+初始化数据库后可以看到对应实例目录下会多了如下文件，省略部分
+
+[root@localhost scripts]# tree /data/|head -10
+
+/data/
+
+├── 3306
+
+│   ├── data
+
+│   ├── my.cnf
+
+│   ├── mysql
+
+│   │   ├── columns_priv.frm
+
+│   │   ├── columns_priv.MYD
+
+│   │   ├── columns_priv.MYI
+
+│   │   ├── db.frm
+
+│   │   ├── db.MYD
+
+
+
+步骤五：启动MySQL多实例数据库
+
+sed -i "s#/usr/local/mysql#/application/mysql#g"  /application/mysql/bin/mysqld_safe           #修改脚本执行路径
+
+[root@localhost scripts]# /data/3306/mysqld start
+
+MySQL 3306 Starting                                        [  OK  ]
+
+[root@localhost scripts]# /data/3307/mysqld start 
+
+MySQL 3306 Starting                                        [  OK  ]
+
+[root@localhost 3307]# netstat -tnlp | grep 330
+
+tcp        0      0 0.0.0.0:3306                0.0.0.0:*                   LISTEN      7983/mysqld         
+
+tcp        0      0 0.0.0.0:3307                0.0.0.0:*                   LISTEN      8271/mysqld 
+
+
+
+流程八：配置和管理MySQL多实例数据库
+
+
+1）加入开机自启
+
+[root@localhost 3306]# echo "#mysql  multi instances" >> /etc/rc.local 
+
+[root@localhost 3306]# echo "/data/3306/mysqld start" >> /etc/rc.local          
+
+[root@localhost 3306]# echo "/data/3307/mysqld start" >> /etc/rc.local  
+
+
+2）登录MySQL测试
+
+[root@localhost 3306]# mysql -S /data/3306/mysql.sock         #mysql.sock用于区分登录不同的实例
+
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+
+Your MySQL connection id is 1
+
+Server version: 5.5.32-log MySQL Community Server (GPL)
+
+
+Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+
+affiliates. Other names may be trademarks of their respective
+
+owners.
+
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+
+mysql> show databases;
+
++--------------------+
+
+| Database           |
+
++--------------------+
+
+| information_schema |
+
+| data               |
+
+| mysql              |
+
+| performance_schema |
+
+| test               |
+
++--------------------+
+
+5 rows in set (0.01 sec)
+
+
+mysql> select user();
+
++----------------+
+
+| user()         |
+
++----------------+
+
+| root@localhost |
+
++----------------+
+
+1 row in set (0.00 sec)
+
+
+3）MySQL多实例数据库的管理方法
+
+无密码情况下登录数据库方法：
+
+mysql -S /data/3306/mysql.sock
+
+mysql -S /data/3307/mysql.sock
+
+重启对应实例数据库的命令：
+
+/data/3306/mysqld restart
+
+
+4）MySQL安全配置
+
+通过mysqladmin命令为MySQL不同实例的数据库设置独立的密码，命令如下：
+
+[root@localhost 3306]# mysqladmin -u root -S /data/3306/mysql.sock password 'ywxi123'
+
+[root@localhost 3306]# mysqladmin -u root -S /data/3307/mysql.sock password 'ywxi123'
+
+[root@localhost 3306]# mysql -uroot -pywxi123 -S /data/3306/mysql.sock 
+
+[root@localhost 3306]# mysql -uroot -pywxi123 -S /data/3307/mysql.sock 
+
+
+5）再增加一个MySQL的实例
+
+mkdir -p /data/3308/data
+
+\cp /data/3306/mysqld /data/3308/
+
+\cp /data/3306/my.cnf /data/3308/
+
+sed -i 's/3306/3308/g' /data/3308/my.cnf
+
+sed -i 's/3306/3308/g' /data/3308/mysqld 
+
+chmod 700 /data/3308/mysqld
+
+cd /application/mysql/scripts/
+
+./mysql_install_db  --basedir=/application/mysql --datadir=/data/3308 --user=mysql
+
+chown -R mysql:mysql /data/3308/
+
+egrep "server_id|log_bin" /data/3308/my.cnf
+
+ /data/3308/mysqld start
+
+netstat -tnlp | grep 3308
+
+
+

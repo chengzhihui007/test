@@ -1,0 +1,20 @@
+参考网址: https://www.cnblogs.com/Lenbrother/articles/6203620.html
+卸载掉安装的部分
+首先执行查看命令，看一下都安转了什么东东：
+rpm -qa |grep -i mysql
+开始卸载
+执行卸载命令：
+yum -y remove mysql-community mysql-community-server mysql-community-libs mysql-community-common
+
+检查卸载残余
+检查是否卸载干净：rpm -qa |grep -i mysql
+
+卸载残余
+卸载掉刚才未卸载掉的部分：yum remove mysql-community-release
+
+终极检查
+再进行一遍检查：rpm -qa |grep -i mysql，安装部分已完全卸载掉。
+
+清理文件
+查看mysql文件目录：find / -name mysql
+删除掉该文件:rm -rf /usr/share/mysql

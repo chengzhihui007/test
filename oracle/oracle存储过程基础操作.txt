@@ -1,0 +1,124 @@
+参考网址： https://www.cnblogs.com/dc-earl/articles/9260111.html
+
+一。打印hello word, my name is stored procedure内容
+	
+
+
+	create or replace procedure myDemo01
+	as
+	begin
+		dbms_output.put_line("'hello word, my name is stored procedure");
+	end;
+
+
+	调用: declare begin
+			 myDemo01;
+			 end;
+create or replace procedure:  关键字用来创建或覆盖一个原有的存储过程。
+myDemo01:自定义存储过程的名字
+as: 关键字。
+	注：
+		在存储过程(PROCEDURE)和函数(FUNCTION)中没有区别；
+		在视图(VIEW)中只能用AS不能用IS；
+		在游标(CURSOR)中只能用IS不能用AS.
+begin: 关键字。
+dbms_output.put_line(‘hello world,my name is stored procedure’);输出内容
+end; 关键字。
+
+	declare begin
+		myDemo01;
+	end;
+
+	begin
+		myDemo01; --在此处也可使用myDemo01();
+	end;
+
+二。 变量声明、赋值
+	
+	create or replace procedure mydemo02
+	as
+	name varchar(10); --声明变量，注意varchar需要指定长度
+	age int;
+	begin
+	  name:='xiaoming';--变量赋值
+	  age:=18;
+	  dbms_output.put_line('name='||name||', age='||age); --通过||符号达到连接字符串的功能
+	end;
+
+
+	调用：
+	  declare  begin
+			myDemo02;
+		   end;
+
+
+三。带有参数的存储过程
+
+	create or replace procedure myDemo03(name in varchar,age in int)
+	as
+	begin
+		dbms_output.put_line('name='||name||', age='||age);
+	end;
+
+
+
+	调用：
+	begin
+		myDemo03('xiaoming',18);
+	end;
+
+四。实参形参问题
+
+	create or replace procedure myDemo04(name in varchar,age in int)
+	as
+	begin
+	dbms_output.put_line('name='||name||', age='||age);
+	end;
+
+	调用：
+		declare
+		  name varchar(10);
+		  age int;
+		begin
+		  name:='xiaoming';
+		  age:=18;
+		  myDemo04(name=>name,age=>18); --此时不能myDemo04()name=>name,18,不能完成调用。
+		end;
+
+	
+五。in,out参数问题
+	
+	create or replace procedure myDemo05(name out varchar,age in int)
+	as
+	begin 
+		dbms_output.put_line('age='||age);
+		select 'xiaoming' into name from dual;
+	end;
+	
+	调用：
+		declare
+		  name varchar(10);
+		  age int;
+		begin
+	 	  myDemo05(name=>name,age=>10);
+		  dbms_output.put_line('name='||name);
+	注：in 代表输入,out用于输出。
+
+
+六。异常问题，执行结果见下图
+		
+
+		create or replace procedure myDemo06
+		as 
+  		 age int;
+		begin
+		 age:=10/0;
+		 dbms_output.put_line(age);
+		exception when others then
+		 dbms_output.put_line('error');
+		end;
+
+	调用：
+		begin
+			myDemo06();
+		end;

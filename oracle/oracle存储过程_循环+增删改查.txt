@@ -1,0 +1,69 @@
+八。增删改
+
+create or replace procedure mydemo07(id in int,name in varchar)
+as
+begin
+-- insert into t_test(c_id,c_name) values(id,name); --增
+-- delete from t_test where id=ids; --删
+-- update t_test set c_name=name where c_id=id; --改
+commit;
+
+end;
+
+
+调用：
+	begin
+		mydemo07(1,'xiaoming');
+	end;
+
+
+九。查
+
+create or replace  procedure mydemo08(id in int , name out varchar)
+as 
+begin
+select c_name into name from t_test where c_id=id; --查
+commit;
+end;
+
+调用：
+	declare
+		id int;
+		name varchar;
+	begin
+		id:=1;
+	myDemo08(id=>id,name=>name);
+	dbms_output.put_line('age='||age);
+	end;
+
+十。for循环
+
+	create or replace procedure myDemo09
+	as
+	begin
+		for test in (select * from t_test) loop
+		if(stu.c_id<5) then
+		dbms_output.put_line(test.c_id);
+	end loop;
+	commit;
+	end;
+
+	调用:
+		begin
+		myDemo09();
+		end;
+
+十一。while循环
+	create or replace procedure test_while_loop as
+	  n_count number :=0;
+	begin
+	  while n_count <10 loop
+	  dbms_output.put_line(n_count);
+	  n_count :=n_count +1;
+	end loop;
+	end;
+
+	调用：
+		begin
+		  test_while_loop();
+		end;

@@ -1,0 +1,245 @@
+（K8s）
+1、关闭Centos自带的防火墙服务
+注：Kubernetes集群之间会有大量的网络通信，在一个安全的内部网络环境中建议关闭防火墙服务
+
+[root@andyxu-test ~]# systemctl disable firewalld
+[root@andyxu-test ~]# systemctl stop firewalld
+2、安装etcd和Kubernetes软件（会自动安装Docker软件）
+
+[root@andyxu-test ~]# yum -y install etcd kubernetes
+注：yum方式安装的kubernetes的版本是1.5.2
+初识Kubernetes（K8s）：从一个单机部署实现Java Web应用例子开始
+3、生成rhsm证书文件
+[root@andyxu-test ~]# wget http://mirror.centos.org/centos/7/os/x86_64/Packages/python-rhsm-certificates-1.19.10-1.el7_4.x86_64.rpm
+[root@andyxu-test ~]# rpm2cpio python-rhsm-certificates-1.19.10-1.el7_4.x86_64.rpm | cpio -iv --to-stdout ./etc/rhsm/ca/redhat-uep.pem | tee /etc/rhsm/ca/redhat-uep.pem
+注：创建容器时需要从redhat站点下载pod-infrastructure:latest镜像，如果没有此证书文件会报错，Pod会一直显示ContainerCreating状态。
+
+4、修改docker和kube-apiserver的配置文件
+docker配置文件为/etc/sysconfig/docker，将OPTIONS的内容修改为
+
+OPTIONS='--selinux-enabled=false --insecure-registry gcr.io'
+
+kube-apiserver配置文件为/etc/kubernetes/apiserver，修改KUBE_ADMISSION_CONTROL的内容，将--admission-control参数中的ServiceAccount删除。
+
+KUBE_ADMISSION_CONTROL="--admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ResourceQuota"
+5、按顺序启动所有服务
+
+[root@andyxu-test ~]# systemctl start etcd
+[root@andyxu-test ~]# systemctl start docker
+[root@andyxu-test ~]# systemctl start kube-apiserver
+[root@andyxu-test ~]# systemctl start kube-controller-manager
+[root@andyxu-test ~]# systemctl start kube-scheduler
+[root@andyxu-test ~]# systemctl start kubelet
+[root@andyxu-test ~]# systemctl start kube-proxy
+
+二、创建并配置mysql容器
+1、创建mysql的Deployment定义文件
+mysql-dep.yaml文件内容如下：
+
+--------------
+apiVersion: extensions/v1beta1                  #apiserver的版本
+kind: Deployment                                      #副本控制器deployment，管理pod和RS
+metadata:
+  name: mysql                                            #deployment的名称，全局唯一
+spec:
+  replicas: 1                                                #Pod副本期待数量
+  selector:
+    matchLabels:                                         #定义RS的标签
+      app: mysql                                          #符合目标的Pod拥有此标签
+  strategy:                                                  #定义升级的策略
+    type: RollingUpdate                               #滚动升级，逐步替换的策略
+  template:                                                #根据此模板创建Pod的副本（实例）
+    metadata:
+      labels:
+        app: mysql                                        #Pod副本的标签，对应RS的Selector
+    spec:
+      containers:                                          #Pod里容器的定义部分
+      - name: mysql                                     #容器的名称
+        image: mysql:5.7                               #容器对应的docker镜像
+        volumeMounts:                                #容器内挂载点的定义部分
+        - name: time-zone                            #容器内挂载点名称
+          mountPath: /etc/localtime              #容器内挂载点路径，可以是文件或目录
+        - name: mysql-data
+          mountPath: /var/lib/mysql               #容器内mysql的数据目录
+        - name: mysql-logs
+          mountPath: /var/log/mysql              #容器内mysql的日志目录
+        ports:
+        - containerPort: 3306                         #容器暴露的端口号
+        env:                                                   #写入到容器内的环境容量
+        - name: MYSQL_ROOT_PASSWORD   #定义了一个mysql的root密码的变量
+          value: "123456"
+      volumes:                                             #本地需要挂载到容器里的数据卷定义部分
+      - name: time-zone                              #数据卷名称，需要与容器内挂载点名称一致
+        hostPath:
+          path: /etc/localtime                        #挂载到容器里的路径，将localtime文件挂载到容器里，可让容器使用本地的时区
+      - name: mysql-data
+        hostPath:
+          path: /data/mysql/data                   #本地存放mysql数据的目录
+      - name: mysql-logs
+        hostPath:
+          path: /data/mysql/logs                    #本地存入mysql日志的目录
+-----------------------
+apiVersion：定义使用apiserver的哪个版本，可通过kubectl api-versions命令查看apiserver有哪些版本；
+kind：用来表明此资源对象的类型，比如这里的值为“Deployment”，表示这是一个deployment；
+spec：RS相关属性定义，spec.selector是RS的Pod标签（Label）选择器，即监控和管理拥有这些标签的Pod实例，确保当前集群上始终有且仅有replicas个Pod实例在运行，这里设置replicas=1表示只能运行一个Mysql Pod实例。
+spec.strategy：定义Pod的升级方案，Recreate表示删除所有已存在的Pod，重新创建新的；RollingUpdate表示滚动升级，逐步替换的策略，滚动升级时支持更多的附加参数，例如设置最大不可用Pod数量，最小升级间隔时间等等。
+spec.template：当集群中运行的Pod数量小于replicas时，RS会根据spec.template中定义的Pod模板来生成一个新的Pod实例，spec.template.metadata.labels指定了该Pod的标签，需要特别注意的是，这里的labels必须匹配之前的spec.selector。
+spec.template.spec.containers：容器的定义部分，包括容器的名称、使用的docker镜像、挂载数据卷、服务的端口号、变量等内容。
+spec.template.spec.volumes：需要挂载到容器里的本地数据卷的定义部分，数据卷的名称要与容器内挂载点的名称一致，path定义本地的数据卷路径。
+
+
+2、创建deployment、RS、Pod和容器
+创建过程需要先下载镜像，时间会比较久，可喝杯茶撩撩旁边的妹子，哈哈，请耐心等待
+
+[root@andyxu-test ~]# kubectl create -f mysql-dep.yaml
+deployment "mysql" created
+
+3、查看创建好的deployment运行情况
+
+[root@andyxu-test ~]# kubectl get deployment 
+NAME      DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+mysql     1         1         1            1           8s
+注：都是1表示运行正常
+4、查看ReplicaSet（RS）的运行情况
+
+[root@andyxu-test ~]# kubectl get rs
+NAME               DESIRED   CURRENT   READY     AGE
+mysql-3238461207   1         1         1         6m
+注：都是1表示运行正常
+5、查看Pod的运行情况
+
+[root@andyxu-test ~]# kubectl get pod
+NAME                     READY     STATUS    RESTARTS   AGE
+mysql-3238461207-vvwt8   1/1       Running   0          56m
+注：READY的值是1/1，并且STATUS的值是Running，表示运行正常
+由于Pod的创建需要花费一些时间，在还没有创建好容器时，STATUS的状态会是ContainerCreating，表示正在创建容器，这时只需要等待。Pod创建好后，STATUS的状态会是Running，这时可以通过docker ps命令查看容器运行的情况。
+6、查看容器的运行情况
+
+[root@andyxu-test ~]# docker ps
+CONTAINER ID        IMAGE                                                        COMMAND                  CREATED             STATUS              PORTS               NAMES
+5252cd76009a        mysql:5.7                                                    "docker-entrypoint..."   55 minutes ago      Up 55 minutes                           k8s_mysql.23f88726_mysql-3238461207-vvwt8_default_72d7bff7-d81c-11e8-a729-000c29dabb02_6b15dcfc
+f026e79ddad9        registry.access.redhat.com/rhel7/pod-infrastructure:latest   "/usr/bin/pod"           55 minutes ago      Up 55 minutes                           k8s_POD.1d520ba5_mysql-3238461207-vvwt8_default_72d7bff7-d81c-11e8-a729-000c29dabb02_668a091e
+7、查看Pod里容器的时间，检查时间是否与本地时间一致
+
+[root@andyxu-test ~]# kubectl exec mysql-3238461207-vvwt8 date
+Thu Oct 25 15:06:15 CST 2018
+注：exec后面跟pod的名称
+8、创建mysql的service定义文件
+mysql-svc.yaml文件内容如下：
+
+apiVersion: v1
+kind: Service     #表示Kubernetes Service
+metadata:
+  name: mysql   #Service的名称
+spec:
+  ports:
+    - port: 3306   #Service提供服务的端口号
+  selector:
+    app: mysql    #Service对应的Pod的标签
+metadata.name：Service的服务名称
+spec.ports：Service提供的服务端口号，对应容器的服务端口号
+spec.selector：确定哪些Pod副本（实例）对应到此Service
+9、创建Service
+
+[root@andyxu-test ~]# kubectl create -f mysql-svc.yaml 
+service "mysql" created
+10、查看Service的运行情况
+
+[root@andyxu-test ~]# kubectl get svc
+NAME         CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+kubernetes   10.254.0.1      <none>        443/TCP    4h
+mysql        10.254.144.64   <none>        3306/TCP   57s
+kubernetes会给Service分配一个Cluster IP，这是个虚拟IP地址，此后集群中的其他新创建的Pod就可以通过此Cluster IP+端口号的方式来连接和访问mysql服务了。
+
+三、创建并配置tomcat容器
+1、创建tomcat的Deployment定义文件
+myweb-dep.yaml文件的内容如下：
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: myweb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myweb
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: myweb
+    spec:
+      containers:
+      - name: myweb
+        image: kubeguide/tomcat-app:v1
+        volumeMounts:
+        - name: time-zone
+          mountPath: /etc/localtime
+        - name: tomcat-logs
+          mountPath: /usr/local/tomcat/logs
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MYSQL_SERVICE_HOST
+          value: '10.254.144.64'               #此处为mysql服务的Cluster IP
+        - name: MYSQL_SERVICE_PORT
+          value: '3306'
+      volumes:
+      - name: time-zone
+        hostPath:
+          path: /etc/localtime
+      - name: tomcat-logs
+        hostPath:
+          path: /data/tomcat/logs
+		  
+2、创建tomcat的deployment、RS、Pod和容器
+
+[root@andyxu-test ~]# kubectl create -f myweb-dep.yaml 
+deployment "myweb" created
+创建过程比较久，请耐心等待，pod的STATUS状态为Running时表示创建成功。
+
+3、创建tomcat的Service定义文件
+myweb-svc.yaml文件的内容如下：
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: myweb
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      nodePort: 30001
+  selector:
+    app: myweb
+此Service开启了NodePort方式的外网访问模式，端口为30001，此端口会映射到tomcat容器的8080端口上。
+4、创建Service
+
+[root@andyxu-test ~]# kubectl create -f myweb-svc.yaml 
+service "myweb" created
+5、查看Service的运行情况
+
+[root@andyxu-test ~]# kubectl get svc
+NAME         CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+kubernetes   10.254.0.1      <none>        443/TCP          5h
+mysql        10.254.144.64   <none>        3306/TCP         24m
+myweb        10.254.246.56   <nodes>       8080:30001/TCP   39s
+6、可使用curl命令测试tomcat服务是否能正常访问
+
+[root@andyxu-test ~]# curl http://192.168.2.238:30001
+
+四、通过浏览器访问网页
+1、如果30001端口不通的话，重新启动、关闭firewalld防火墙
+
+[root@andyxu-test ~]# systemctl start firewalld
+[root@andyxu-test ~]# systemctl stop firewalld
+注：因为kubernetes会在iptables里添加一些策略，需要再重新开启关闭防火墙才会关闭掉这些策略。
+2、通过浏览器访问http://192.168.2.238:30001/demo/
+提交以后，数据就被写入mysql数据库里了。
+3、登陆mysql数据库验证
+
+[root@andyxu-test ~]# docker exec -it 5252cd76009a /bin/bash
+root@mysql-3238461207-vvwt8:/# mysql -uroot -p123456
+mysql> use HPE_APP
+mysql> select * from T_USERS;

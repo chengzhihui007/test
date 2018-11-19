@@ -18,4 +18,25 @@ Kubernetes基本概念和术语
 	·Pod
 	Pod是Kubernetes的最重要也是最基本的概念，每个Pod都有一个特殊的被称为“根容器”的Pause容器。Pause容器对应的镜像属于Kubernetes平台的一部分，除了Pause容器，每个Pod还包含一个或多个紧密相关的用户业务容器。
 
-	Pod其实有两种类型：普通的Pod及静态Pod（static Pod),后者比较特殊，它并不存放在Kubernetes的etcd村处理，而是从存放在某个具体的Node上的一个具体文件中，并且只在此Node上启动运行。而普通的Pod一旦被创建，就会被放入到etcd中存储，随后会被Kubernetes Master调度到具体的Node上并进行绑定(Binding)，随后该Pod被对应的Node上的kubelet进程实例化成一组相关的Docker容器并启动起来。在默认情况下，当Pod里的某个容器停止时，Kubernetes会自动检测到这个问题并且重新启动这个Pod（重启Pod里的所有容器），
+	Pod其实有两种类型：普通的Pod及静态Pod（static Pod),后者比较特殊，它并不存放在Kubernetes的etcd村处理，而是从存放在某个具体的Node上的一个具体文件中，并且只在此Node上启动运行。而普通的Pod一旦被创建，就会被放入到etcd中存储，随后会被Kubernetes Master调度到具体的Node上并进行绑定(Binding)，随后该Pod被对应的Node上的kubelet进程实例化成一组相关的Docker容器并启动起来。在默认情况下，当Pod里的某个容器停止时，Kubernetes会自动检测到这个问题并且重新启动这个Pod（重启Pod里的所有容器），如果Pod所在的Node宕机，则会将这个Node上的所有Pod重新调度到其他节点上。
+
+	·Label
+	Label是Kubernetes系统中另外一个核心概念。一个Label是一个key=value的键值对，其中key与value由用户指定。Label可以附加到各种资源对象上，例如Node、Pod、Service、RC等，一个资源对象可以定义任意数量的Label,同一个Label也可以被添加到任意数量的资源对象上去，Label通常在资源对象定义时确定，也可以在对象创建后动态添加或者删除。
+	我们可以通过给指定的资源对象捆绑一个或多个不同的Label来实现多维度的资源分组管理功能。
+	例如：
+	☆版本标签：“release”:"stable","release":"canary" ...
+	☆环境标签：“environment”："dev","environment":"qa","environment":"production"
+	☆架构标签：“tier":"frontend","tier":"backend","tier":"middleware"
+	☆分区标签：”partition":"customerA","partition":"customerB" ...
+	☆质量管控标签：“track"：”daily","track":"weekly" 
+	Label相当于我们熟悉的“标签”，给某个资源对象定义一个Label,就相当于给它打了一个标签，随后可以通过Label Selector(标签选择器)查询和筛选拥有某些Label的资源对象，kubernetes通过这种方式实现了类似SQL的简单又通用的对象查询机制。
+	下面是例子：
+	☆ name=redis-slave: 匹配所有具有标签 name=redis-slave的资源对象。
+	☆ env !=production: 匹配所有不具有标签env=production的资源对象，比如env=test就是满足次调价的标签之一。
+	而后者则使用集合操作的表达式匹配标签，下面是具体例子：
+	☆ name in (redis-master,redis-slave):匹配所有具有标签 name=redis-master 或者 name=redis-slave的资源对象。
+	☆ name not in (php-frontend): 匹配所有 不具有标签name=php-frontend的资源对象。
+	可以通过多个Label Selector表达式的组合实现复杂的条件选择，多个表达式之间用“，” 进行分隔即可，几个条件之间是“and"的关系，即同时满足多个条件，比如下面的例子：
+	name=redis-slave,env!=production
+	name notin (php-frontend),env!=production
+	Label Selector 在Kubernetes 中的重要使用场景有一下几处：

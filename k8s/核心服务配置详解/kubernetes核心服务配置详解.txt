@@ -1,0 +1,80 @@
+--------------------------------------
+☆Kubernetes核心服务配置详解
+	1.公共配置参数
+	公共配置参数适用于所有服务，如表2.3所示的参数可用于kube-apiserver、kube-controller-manager、kube-scheduler、kubelet、kube-proxy。
+	
+
+	参数名和取值示例				说明
+	--log-backtrace-at=:0				记录日志每到"file:行号"时打印一次stack trace
+	--log-dir=					日志文件路径
+	--log-flush-frequency=5s			设置flush日志文件的时间间隔
+	--logtostderr=true				设置为true则表示将日志输出到sterr,不输出到日志文件
+	--alsologtosterr=false				设置为true则表示将日志输出到文件同时输出到stderr
+	--stderrthreshold=2				将该threshold级别智商的日志输出到stderr
+	--v=0						glog日志级别
+	--vmodule=					glog基于模块的详细日志级别
+	--version=[false]				设置为true则将打印版本信息然后退出
+
+	2.kube-apiserver启动参数
+	
+	-admission-control="AlwaysAdmit"
+	说明：对发送给API Server 的任何请求进行准入控制，配置为一个“准入控制器”的列表，多个准入控制器时以逗号分隔。多个准入控制器将按顺序对发送给API Server的请求进行拦截和过滤，若某个准入控制器不允许该请求通过，则API Server拒绝此调用请求。可配置的准入控制器如下。
+	○ AlwaysAdmit: 允许所有请求
+	○ AlwaysPullImages:在启动容器之前总是去下载镜像，相当于在每个容器的配置项imagePullPolicy=Always.
+	○ AlwaysDeny:禁止所有请求，一般用于测试。
+	○ DenyExecOnprivileged: 它会拦截所有想在privileged container上执行命令的请求。如果你的集群支持privileged container,你又希望限制用户在这些privileged container上执行命令，那么强烈推荐使用。
+	○ ServiceAccount:这个plug-in将serviceAccounts实现了自动化。
+	○ SecurityContextDeny:这个插件将使用了SecurityContext的Pod中定义的选项全部失效。SecurityContext在container中定义了操作系统级别的安全设定(uid、gid、capabilities、SELinux等).
+	○ ResourceQuota:用于配额管理目的，作用于Namespace上，它会观察所有的请求，确保在namespace上的配额不会超标。推荐在admission control  参数列表中这个插件排最后一个。
+	○ LimitRanger:用于配额管理，作用于Pod与Container上，确保Pod与Container上 配额不会超标。
+	○ NamespaceExists(已过时):对所有请求校验namespace是否已存在，如果不存在则拒绝请求。已合并至NamespaceLifecycle.
+	○ NamespaceAutoProvision(已过时)：对所有请求校验namespace,如果不存在则自动创建该namespace,推荐使用NamespaceLifecycle.
+	○ NamespaceLifecycle: 如果尝试在一个不存在的namespace中创建资源对象，则该创建请求将被拒绝。当删除一个namespace时，系统将会删除该namespace中的所有对象，包括Pod、Service等。
+	如果启用多种准入选项，则建议加载的顺序是：
+	-admission-control=NamespacLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota
+
+	--admission-control-config-file=""
+	说明：与准入控制规则相关的配置文件
+
+	--advertise-address=<nil>
+	说明：
+	用于广播给集群的所有成员自己的IP地址，不指定该地址将使用“--bind-address”定义的IP地址
+	
+	--allow-privileged=false
+	说明：
+	如果设置为true,则Kubernetes将允许在Pod中运行拥有系统特权的容器应用，与docker run --privileged的功效相同
+	
+	--apiserver-count=1
+	说明：
+	集群中运行的API Server数量
+
+	--authentication-token-webhook-cache-ttl=2m0s
+	说明：
+	将webhook token authenticator 返回的响应保存在缓存内的时间，默认2分钟
+
+	--authentication-token-webhook-config-file=""
+	说明：
+	Webhook相关的配置文件，将用于token authentication
+	
+	--authorization-mode="AlwaysAllow"
+	到API Server的安全访问的认证模式列表，以逗号分隔，可选项包括：AlwaysAllow,AlwaysDeny,ABAC,Webhook,RBAC
+
+	--authorization-policy-file=""
+	当--authorization-mode设置为ABAC时使用的CSV格式的授权配置文件
+
+	--authorization-rbac-super-user=""
+	当--authorization-mode设置为RBAC时使用的超级用户名，使用该用户名可以不进行RBAC认证
+
+	--authorization-webhook-cache-authorized=5m0s
+	将webhook authorizer返回的“已授权”相应保存在缓存内的时间，默认为5分钟。
+
+	--authorization-webhook-cache-unauthorized-ttl=30s
+	将webhook authorizer返回的“未授权”响应保存在缓存内的时间，默认为30秒
+
+	--authorization-webhook-config-file=""
+	当--authorization-mode设置为webhook时使用的授权配置文件
+	
+	--basic-auth-file=""
+	设置该文件用于通过HTTP基本认证的方式访问API Server的安全端口
+	
+	--

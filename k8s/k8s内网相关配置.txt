@@ -1,0 +1,19 @@
+----------------------------------------
+☆内网中的Kubernetes相关配置
+	1.Docker Private Registry(私有Docker镜像库)
+	 使用Docker 提供的Registry镜像创建一个私有镜像仓库。
+	 详细的安装步骤请参Docker的官方文档 https://docs/docker.com/registry/deploying/ .
+	2.kubelet配置
+	 由于在Kubernetes中是以Pod而不是Docker容器为管理单元的，在kubelet创建Pod时，还通过启动一个名为google_containers/pause的镜像来实现Pod的概念。
+	该镜像存在于谷歌镜像库http://gcr.io中，需要通过一台能够连上Internet的服务器将其下载，导出文件，再push到私有Docker Registry中去。
+	之后，可以给每台Node的kubelet服务的启动参数加上--pod_infra_container_image参数，指定为私有Docker Registry中pause镜像的地址。例如：
+	# cat /etc/kubernetes/kubelet
+	 KUBELET_ARGS="--api-servers=http://192.168.18.3:8080 --hostname-override=192.168.18.3 --log-dir=/var/log/kubernetes --v=2 --pod_infra_container_image=gcr.io/google_containers/pause-amd64:3.0"
+	如果该镜像无法下载，则也可以从Docker Hub 上进行下载：
+	#docker pull kubeguide/google_containers/pause-amd64:3.0
+	修改kubelet配置文件中的--pod_infra_container_image参数如下：
+	--pod_infra_container_image=kubeguide/google_containers/pause-amd64:3.0
+	然后重启kubelet服务：
+	# systemctl restart kubelet
+	通过以上设置就在内网环境中搭建了一个企业内部的私有容器云平台。
+	

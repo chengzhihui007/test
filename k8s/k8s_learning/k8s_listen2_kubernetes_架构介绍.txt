@@ -1,0 +1,49 @@
+参考网址：https://blog.csdn.net/linux_player_c/article/details/79766750
+
+k8s的整体架构主要分为两个部分：master(控制节点)和node(计算节点)。
+
+如图：  https://img-blog.csdn.net/20180331104701854?watermark/2/text/aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2xpbnV4X3BsYXllcl9j/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70
+
+
+
+1.左边是master节点的内容：
+作为k8s的控制节点，主要包含如下几个组件：
+	（1）kube-apiserver提供了统一的资源操作入口，对于k8s任何资源的增改查操作都需要首先经过apiserver处理后才能在etcd服务上进行状态修改，主要分为http/https服务和一些功能性插件。它的职能总结为以下几点：
+	1.对外提供restful的管理接口，可以对pod、service、replication controller、计算节点进行CRUD和监听操作。
+	2.配置k8s的资源对象，并且将资源对象的期望状态和当前实际存储在etcd集群的数据进行比对和分析。
+	3.提供用户自定义的插件
+	4.系统日志收集
+	5.可配置api文档
+	(2)kube-scheduler是一个资源调度器，它根据特定的调度算法把pod生成到指定的计算节点中。
+	(3)kube-controller-manager也是运行在控制节点上一个很关键的管理组件，它管理很多类型的资源，例如：服务端点、副本、垃圾回收、计算节点、服务、路由、自愿配额、命名空间等等。
+2.右边两个分别是k8s的两个计算节点，计算节点主要包含以下几个组件：
+	(1)kubelet 负责维护和管理这个计算节点，它可以使得pod的运行状态和期望值一致。
+	(2)kube-proxy为service提供了服务发现和负载均衡的功能。
+	(3)docker作为最底层的容器组件在计算节点也是必须存在的，它管理着容器的管理工作。
+3.etcd保存了整个集群的状态，它可以作为一个etcd集群独立在其他节点以，etcd的个数必须是基数个(由分布式的算法决定).
+4.上述是搭建一个k8s所必需的具备的组件，如果还需要对整个集群做功能上的扩展，可以参考如下组件：
+	(1)ingress为服务提供外网入口
+	(2)kube-dns为整个集群提供dns服务
+	(3)Dashboard提供GUI
+	(4)Heapster提供资源监控，也可以使用第三方监控(Prometheus).
+
+系统环境
+	配置： 4核，4G，50G磁盘
+上述k8s的组建部署如下：
+	master: kube-scheduler、kube-controller-manager、kube-apiserver、etcd
+	node: kubelet、kube-proxy、docker、etcd
+
+部署的整体步骤如下：
+	1.创建tls证书和秘钥；
+	2.创建kubeconfig文件；
+	3.创建etcd集群；
+	4.安装kubectl命令；
+	5.部署master节点；
+	6.安装flannel网络插件；
+	7.部署node节点；
+	8.其他组件安装。
+
+	·上述部分需要用到私有docker仓库，参考listen1.
+
+To Be Continue...
+

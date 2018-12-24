@@ -10,8 +10,15 @@
 		systemctl start docker.service && systemctl enable docker.service
 	查看docker服务状态：
 		systemctl status docker.service
-	安装docker-compose:
+	安装docker-compose:(安装不了，需要另类安装)
 		yum install docker-compose -y
+		ps:1、安装python-pip
+		yum -y install epel-release
+		yum -y install python-pip
+		2、安装docker-compose
+		pip install docker-compose
+		待安装完成后，执行查询版本的命令，即可安装docker-compose
+		docker-compose version
 	下载harbor的离线安装包，下载地址：
 	http://harbor.orientsoft.cn/harbor-v1.4.0/harbor-offline-installer-v1.4.0.tgz
 

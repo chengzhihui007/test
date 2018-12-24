@@ -1,0 +1,7 @@
+cd  /etc/yum.repo.d
+mv CentOS-Base.repo CentOS-Base.repo.bak
+wget http://mirrrors.aliyun.com/repo/Centos-7.repo
+mv Centos-7.repo CentOS-Base.repo
+yum clean all
+yum makecache
+yum update

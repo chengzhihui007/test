@@ -1,0 +1,240 @@
+传输k8s各组件之间的通信可以使用http方式，但是为了安全起见，生产环境需要使用https方式通信，所以我们需要生成tls证书进行加密传输。
+
+构建环境
+		节点名称                 ip               配置
+		wecloud-test-k8s-1	192.168.134.134	   4核，4G,50G磁盘
+		同上			同上			同上
+		同上			同上			同上
+		同上			同上			同上
+
+生成tls证书的工具：cfssl
+
+生成的CA证书和秘钥文件如下：
+	ca-key.pem
+	ca.pem
+	kubernetes-key.pem
+	kubernetes.pem
+	kube-proxy.pem
+	kube-proxy-key.pem
+	admin.pem
+	admin-key.pem
+
+使用证书的组件如下：
+	etcd:使用ca.pem、kubernetes-key.pem、kubernetes.pem;
+	kube-apiserver：使用ca.pem、kubernetes-key.pem、kubernetes.pem;
+	kubelet: 使用ca.pem;
+	kube-proxy: 使用ca.pem、kube-proxy-key.pem、kube-proxy.pem;
+	kubectl: 使用ca.pem、admin-key.pem、admin.pem
+	kube-controller-manager: 使用ca-key.pem、ca.pem
+	证书的创建过程是在master节点上进行的，生成好证书只需要把证书分发给其他节点，这样就可以进行加密通信了。
+	
+安装tls和秘钥
+
+	安装cfssl
+	直接在官网下载cfssl相关二进制包：
+		wget https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+		wget https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+		wget https://pkg.cfssl.org/R1.2/cfssl-certinfo_linux-amd64
+	
+	增加可执行权限后，将可执行二进制文件拷贝到全局变量可以识别的目录 /usr/local/bin :
+		chmod +x cfssl-certinfo_linux-amd64 
+		chmod +x cfssljson_linux-amd64 
+		chmod +x cfssl_linux-amd64 
+		mv cfssl_linux-amd64 /usr/local/bin/cfssl
+		mv cfssljson_linux-amd64 /usr/local/bin/cfssljson
+		mv cfssl-certinfo_linux-amd64 /usr/local/bin/cfssl-certinfo
+
+创建CA文件
+
+	创建CA配置文件：
+		[root@wecloud-test-k8s-1 ~]# mkdir /root/ssl
+		[root@wecloud-test-k8s-1 ~]# cd /root/ssl/
+		[root@wecloud-test-k8s-1 ssl]# cfssl print-defaults config > config.json
+		[root@wecloud-test-k8s-1 ssl]# cfssl print-defaults csr > csr.json
+
+	生成配置文件模板：
+		cat > ca-config.json <<EOF
+ 		{	
+  			"signing": {
+    				"default": {
+      					"expiry": "87600h"
+    				},
+    				"profiles": {
+      					"kubernetes": {
+       	 					"usages": [
+            						"signing",
+            						"key encipherment",
+            						"server auth",
+            						"client auth"
+        					],
+        					"expiry": "87600h"
+      					}
+    				}
+  			}
+		}
+		EOF
+
+	expiry: 其中expiry是过期时间，可以指定多个；
+	signing: 表示该证书可以签名其他证书；
+	server auth: 表示客户端可以用该证书对服务端进行验证；
+	client auth: 表示服务端可以用该证书对客户端进行验证；
+
+	创建CA证书签名请求
+	创建ca-csr.json文件：
+		{
+ 			 "CN": "kubernetes",
+  			 "key": {
+    				"algo": "rsa",
+    				"size": 2048
+  			 },
+  			"names": [
+   				 {
+     					 "C": "CN",
+     					 "ST": "ZheJiang",
+     					 "L": "HangZhou",
+     					 "O": "k8s",
+      					 "OU": "System"
+    				}
+  			]
+		}
+
+	"CN"：Common Name,kube-apiserver从证书中提取该字段作为请求的用户名(User Name);浏览器使用该字段验证网站是否合法；
+	"O":Organization,kube-apiserver从证书中提取该字段作为请求用户所属的组(Group);
+
+
+	生成CA证书和私钥
+		 cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+		 ls
+		 #ca-config.json  ca.csr  ca-csr.json  ca-key.pem  ca.pem  config.json  csr.json 		  ca-key.pem和ca.pem分别为生成的私钥和证书。
+
+	创建kubernetes证书
+		创建kubernetes证书签名请求文件kubernetes-csr.json:
+			{
+    				"CN": "kubernetes",
+    				"hosts": [
+      					"127.0.0.1",
+      					"192.168.99.183",
+				        "192.168.99.189",
+      					"192.168.99.185",
+      					"192.168.99.196",
+      					"10.254.0.1",
+      					"kubernetes",
+      					"kubernetes.default",
+      					"kubernetes.default.svc",
+      					"kubernetes.default.svc.cluster",
+      					"kubernetes.default.svc.cluster.local"
+    				],
+    				"key": {
+        				"algo": "rsa",
+        				"size": 2048
+    				},
+    				"names": [
+        				{
+            					"C": "CN",
+            					"ST": "ZheJiang",
+            					"L": "HangZhou",
+            					"O": "k8s",
+            					"OU": "System"
+        				}
+    				]
+			}
+
+		host字段不为空则需要指定授权使用该证书的IP或域名列表，把我们整个集群需要的节点都添加进去。
+
+	生成kubernetes证书和私钥
+		cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kubernetes-csr.json | cfssljson -bare kubernetes
+	查看生成结果：
+		ls
+		ca-config.json  ca-csr.json  ca.pem       csr.json        kubernetes-csr.json  kubernetes.pem
+		ca.csr          ca-key.pem   config.json  kubernetes.csr  kubernetes-key.pem
+
+
+	创建admin证书
+		创建admin证书签名请求文件admin-csr.json:
+			{
+  				"CN": "admin",
+  				"hosts": [],
+  				"key": {
+    					"algo": "rsa",
+    					"size": 2048
+  				},
+  				"names": [
+    					{
+      						"C": "CN",
+      						"ST": "BeiJing",
+      						"L": "BeiJing",
+      						"O": "system:masters",
+      						"OU": "System"
+    					}
+  				]
+			}
+
+
+	后续kube-apiserver使用RBAC对客户端(如kubelet、kube-proxy、Pod)请求进行授权；
+	kube-apiserver预定义了一些RBAC使用的RoleBindings,如cluster-admin将Group system:masters 与 Role cluster-admin绑定，该Role授予了调用kube-apiserver的所有API的权限；
+	○ 指定该证书的Group为system:masters,kubelet使用该证书访问kube-apiserver时，由于证书被CA签名，所以认证通过，同时由于证书用户组为经过预授权的system:masters，所以被授予访问所有API的权限；
+
+
+	生成admin证书和私钥
+		cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare admin
+		ls
+		admin.csr       admin-key.pem  ca-config.json  ca-csr.json  ca.pem       csr.json        kubernetes-csr.json  kubernetes.pem
+admin-csr.json  admin.pem      ca.csr          ca-key.pem   config.json  kubernetes.csr  kubernetes-key.pem
+
+
+	创建kube-proxy证书
+		创建kube-proxy证书签名请求文件 kube-proxy-csr.json:
+			{
+  				"CN": "system:kube-proxy",
+  				"hosts": [],
+  				"key": {
+    					"algo": "rsa",
+    					"size": 2048
+  				},
+  				"names": [
+    					{
+      						"C": "CN",
+      						"ST": "BeiJing",
+      						"L": "BeiJing",
+      						"O": "k8s",
+      						"OU": "System"
+    					}
+  				]
+			}
+
+	CN指定该证书的User为system:kube-proxy;
+	kube-apiserver预定义的RoleBinding cluster-admin 将User system:kube-proxy 与Role system:node-proxier绑定，该Role授予了调用kube-apiserver Proxy相关API的权限；
+	cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kube-proxy-csr.json | cfssljson -bare kube-proxy 
+
+	ls
+
+	 admin.pem       ca-csr.json  config.json     kube-proxy-csr.json  kubernetes.csr       kubernetes.pem
+admin-csr.json  ca-config.json  ca-key.pem   csr.json        kube-proxy-key.pem   kubernetes-csr.json
+admin-key.pem   ca.csr          ca.pem       kube-proxy.csr  kube-proxy.pem       kubernetes-key.pem
+
+
+	校验证书
+	以kubernetes证书为例
+		使用opsnssl命令
+		openssl x509 -noout -text -in kubernetes.pem 
+
+		·确认Issuer 字段的内容和ca-csr.json一致；
+		·确认Subject字段的内容和kubernetes-csr.json一致；
+		·确认X509V3 Subject Alternative Name 字段的内容和kubernetes-csr.json一致；
+		·确认X509V3 Key Usage、Extended Key  Usage 字段的内容和ca-config.json中kubernetes profile一致；
+	
+
+	分发证书
+	将生成的证书和秘钥文件拷贝到所有机器的/etc/kubernetes/ssl目录下：
+		[root@wecloud-test-k8s-1 ssl]# mkdir /etc/kubernetes/ssl
+		[root@wecloud-test-k8s-1 ssl]# cp *.pem /etc/kubernetes/ssl/
+
+	拷贝到另外的几个节点(在此之前需要实现master到其他节点的免密登录)：
+		[root@wecloud-test-k8s-1 ssl]# scp *.pem 192.168.99.189:/etc/kubernetes/ssl/
+		[root@wecloud-test-k8s-1 ssl]# scp *.pem 192.168.99.185:/etc/kubernetes/ssl/
+		[root@wecloud-test-k8s-1 ssl]# scp *.pem 192.168.99.196:/etc/kubernetes/ssl/
+
+
+小结
+	在后续的章节中需要使用上述的证书完成各组件之间的加密通信。所以这个是出事必备的操作。
+

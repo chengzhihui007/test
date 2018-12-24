@@ -1,0 +1,202 @@
+参考网址：https://blog.csdn.net/linux_player_c/article/details/79704416
+目的：搭建一个单机的harbor镜像仓库，体会对镜像进行上传和下载的过程。
+
+☆构建harbor
+	构建环境：
+
+	首先，安装docker服务：
+		yum install docker -y
+	启动docker服务：
+		systemctl start docker.service && systemctl enable docker.service
+	查看docker服务状态：
+		systemctl status docker.service
+	安装docker-compose:
+		yum install docker-compose -y
+	下载harbor的离线安装包，下载地址：
+	http://harbor.orientsoft.cn/harbor-v1.4.0/harbor-offline-installer-v1.4.0.tgz
+
+	解压
+	 tar -zxvf harbor-offline-installer-v1.4.0.tgz
+
+	跳转到hrbor目录，修改harbor.cfg配置文件：
+		grep  "^[^#]" harbor.cfg
+	#harbor的主机地址
+hostname = 192.168.134.134
+#这里使用http协议，如果需要上传镜像，需要在docker.service文件中添加一个配置，后续会介绍
+ui_url_protocol = http
+max_job_workers = 3 
+customize_crt = on
+ssl_cert = /data/cert/server.crt
+ssl_cert_key = /data/cert/server.key
+secretkey_path = /data
+admiral_url = NA
+log_rotate_count = 50
+log_rotate_size = 200M
+#xxxxxxxxxxxxxxx邮件的配置信息xxxxxxxxxxxxxxxxxxxxx
+email_identity =
+email_server = smtp.mydomain.com
+email_server_port = 25
+email_username = sample_admin@mydomain.com
+email_password = abc
+email_from = admin <sample_admin@mydomain.com>
+email_ssl = false
+email_insecure = false
+#xxxxxxxxxxxxxx邮件的配置信息xxxxxxxxxxxxxxxxxxxxx
+#管理员密码，管理员账号为：admin
+harbor_admin_password = Harbor12345
+#使用数据库存储认证信息
+auth_mode = db_auth
+#配置ldap信息
+ldap_url = ldaps://ldap.mydomain.com
+ldap_basedn = ou=people,dc=mydomain,dc=com
+ldap_uid = uid
+ldap_scope = 2
+ldap_timeout = 5
+ldap_verify_cert = true
+self_registration = on
+token_expiration = 30
+project_creation_restriction = everyone
+#指定mysql数据库的信息
+db_host = mysql
+db_password = root123
+db_port = 3306
+db_user = root
+#redis地址
+redis_url =
+clair_db_host = postgres
+clair_db_password = password
+clair_db_port = 5432
+clair_db_username = postgres
+clair_db = postgres
+uaa_endpoint = uaa.mydomain.org
+uaa_clientid = id
+uaa_clientsecret = secret
+uaa_verify_cert = true
+uaa_ca_cert = /path/to/ca.pem
+registry_storage_provider_name = filesystem
+registry_storage_provider_config =
+
+
+配置信息修改结束后，执行install.sh脚本执行具体的安装过程，安装完成后,harbor的容器都会启动：
+	安装过程主要分为以下几个步骤：
+	·监测环境信息，docker的版本和docker-compose的版本信息；
+	·导入harbor的镜像信息，这些镜像内容都已经包含在离线包中了，所以导入速度相对比较快；
+	·检查harbor的现有实例，如果现有实例都已经包含在离线包中了，所以导入速度相对比较快；
+	·启动harbor
+	
+	最后会提示启动成功，然后可以访问刚才配置的本地Ip地址：
+	 Now you should be able to visit the admin portal at http://192.168.134.134 .
+
+
+	./install.sh
+
+
+查看harbor使用的镜像列表：
+	docker images
+查看harbor的启动容器：
+	docker ps
+
+直接访问harbor的网址：	用户名:admin,密码为配置文件中harbor_admin_password的内容。
+harbor的单机版已经搭建完成，后边介绍如何推送和拉取镜像信息。
+-----------------------------------
+
+推送镜像到harbor仓库
+	docker指定的仓库地址是docker hub,国内较慢，需要修改镜像源为国内源。编辑/etc/docker/daemon.json文件(新版本的docker服务)，设置镜像源的地址：
+	{
+		"registry-mirrors": ["https://docker.mirrors.ustc.edu.cn"]
+}
+	或者修改为aliyun的镜像：
+	sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+  "registry-mirrors": ["https://d0rk773i.mirror.aliyuncs.com"]
+}
+EOF
+修改完成后重启docker
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+再次搜索查看需要的docker镜像，速度飞快：
+	docker search nginx
+
+为了测试效果，我们拉取nginx的官方镜像
+	docker pull docker.io/ngiinx
+可以看到已经镜像列表中已经多出了nginx镜像：
+	docker images
+上传镜像
+	如果需要将这个镜像上传到我们自己的harbor仓库中，，需要给该镜像重新生成一个tag标签。
+	docker tag docker.io/nginx:latest  192.168.134.134/k8s/nginx:latest
+
+	注意这里的写法，新的标签是一个路径的格式： 192.168.134.134/k8s/nginx:latest，其中192.168.134.134是我们的harbor仓库地址，k8s是项目名称，nginx是镜像名称，latest是镜像版本号。
+
+查看镜像列表，可以看到我们多了一个新的镜像标签：
+	docker images
+
+将该镜像推送到harbor仓库，这是一个写操作，需要实现登录harbor仓库：
+	docker login 192.168.134.134
+直接登录发现并不被允许，其实这是因为默认情况下是需要使用https协议的，而我们在harbor的配置中使用的是http协议。所以需要修改docker.service启动脚本中指定非加密的登录方式。编辑/usr/lib/systemd/system/docker.service文件，在启动选项中追加如下配置: -insecure-registry=192.168.99.180:
+[Unit]
+Description=Docker Application Container Engine
+Documentation=http://docs.docker.com
+After=network.target
+Wants=docker-storage-setup.service
+Requires=docker-cleanup.timer
+
+[Service]
+Type=notify
+NotifyAccess=all
+EnvironmentFile=-/run/containers/registries.conf
+EnvironmentFile=-/etc/sysconfig/docker
+EnvironmentFile=-/etc/docker/daemon.json
+EnvironmentFile=-/etc/sysconfig/docker-storage
+EnvironmentFile=-/etc/sysconfig/docker-network
+Environment=GOTRACEBACK=crash
+Environment=DOCKER_HTTP_HOST_COMPAT=1
+Environment=PATH=/usr/libexec/docker:/usr/bin:/usr/sbin
+ExecStart=/usr/bin/dockerd-current \
+          --add-runtime docker-runc=/usr/libexec/docker/docker-runc-current \
+          --default-runtime=docker-runc \
+          --exec-opt native.cgroupdriver=systemd \
+          --userland-proxy-path=/usr/libexec/docker/docker-proxy-current \
+          --insecure-registry=192.168.134.134 \
+          $OPTIONS \
+          $DOCKER_STORAGE_OPTIONS \
+          $DOCKER_NETWORK_OPTIONS \
+          $ADD_REGISTRY \
+          $BLOCK_REGISTRY \
+          $INSECURE_REGISTRY\
+          $REGISTRIES
+ExecReload=/bin/kill -s HUP $MAINPID
+LimitNOFILE=1048576
+LimitNPROC=1048576
+LimitCORE=infinity
+TimeoutStartSec=0
+Restart=on-abnormal
+MountFlags=slave
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+
+重新加载并重启docker
+	systemctl daemon-reload && systemctl restart docker.service
+
+再次登录harbor:
+	docker login 192.168.134.134
+	
+发现harbor登录成功，现在尝试推送镜像到仓库中：
+	docker push 192.168.134.134/k8s/nginx:latest
+
+推送成功后可以在harbor的控制台查看：
+	发现镜像已经上传成功
+----------------------------------------------------
+在另外一个机器上可以尝试拉取刚才上传的nginx镜像(同样需要配置/usr/lib/systemd/system/docker.service,启动项添加192.168.134.134的镜像地址)，配置完成后进行拉取操作：
+	docker pull 192.168.134.134/k8s/nginx
+拉取成功，并且镜像列表中可以看到新的镜像信息：
+	docker images
+------------------------------------------------------
+小结
+	单节点harbor的部署方案，非常的简单易行，如果部署多节点，更加实用的harbor方案。需要考虑更多的因素，后续会有。
+
+
+

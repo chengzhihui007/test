@@ -1,0 +1,61 @@
+1.flannel(覆盖网络)
+	flannel采用覆盖网络(Overlay Network)模型来完成对网络的打通，本节对flannel的安装和配置进行详细说明。
+	1)安装etcd
+	由于flannel使用etcd作为数据库，所以需要预先安装好etcd。
+	2)安装flannel
+	需要在每台Node上安装flannel。flannel软件的下载地址为https://github.com/coreos/flannel/releases。把二进制文件flanneld和mk-docker-opts.sh复制到/usr/bin(或其他PATH环境变量中的目录),即可完成对flannel的安装。
+	3)配置flannel
+	此处以使用systemd系统为例对flanneld服务进行配置。编辑服务配置文件/usr/lib/systemd/system/flanneld.service:
+	[Unit]
+	Description=flanneld overlay address etcd agent
+	After=network.target
+	Before=docker.service
+
+	[Service]
+	Type=notify
+	EnvironmentFile=/etc/sysconfig/flanneld
+	ExecStart=/usr/bin/flanneld -etcd-endpoints=${FLANNEL_ETCD} $FLANNEL_OPTIONS
+
+	[Install]
+	RequiredBy=docker.service
+	WantedBy=multi-user.target
+
+	编辑配置文件/etc/sysconfig/flanneld,设置etcd的URL地址：
+	# flanneld configuration options
+	
+	#etcd url location. Point this to the server where etcd runs
+	FLANNEL_ETCD="http://192.168.134.134:2379"
+
+	#etcd config key. this is the configuration key that flannel queries
+	#For address range assignment
+	FLANNEL_ETCD_KEY="/coreos.com/network"
+
+	在启动flanneld服务之前，需要在etcd中添加一条网络配置记录，这个配置将用于flanneld 分配给每个Docker的虚拟IP地址段。
+	#etcdctl set /coreos.com/network '{ "Network": "10.1.0.0/16" }'
+
+	4)由于flannel将覆盖docker0网桥，所以如果Docker服务已启动，则停止Docker服务。
+	5)启动flanneld服务：
+	# systemctl restart flanneld
+	6)设置docker0网桥的IP地址：
+	#mk-docker-opts.sh -i
+	#source /run/flannel/subnet.env
+	#ifconfig docker0 ${FLANNEL_SUBNET}
+
+	完成后确认网络接口docker0的IP地址属于flannel0的子网：
+	#ip addr
+	flannel0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST> mtu 1472 inet 10.1.10.0 netmask 255.255.0.0 destination 10.1.10.0
+	docker0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST> mtu 1500 inet 10.1.10.1 netmask 255.255.255.0 broadcast 10.1.10.255
+	
+	7)重新启动Docker服务：
+	#systemctl restart docker
+	到此就完成了flannel覆盖网络的设置。
+
+	使用ping 命令验证各Node上docker0直接的互相访问。
+	$ PING 10.1.30.1
+	可以ping通
+	我们也可以在etcd中查看到flannel设置的flannel0地址与物理机IP地址的对应规则：
+	#etcctl ls /cores.com/network/subnets
+	
+	#etcdctl get /coreos.com/network/subnets/10.1.10.0-24
+
+

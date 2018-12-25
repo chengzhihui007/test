@@ -1,0 +1,120 @@
+etcd集群
+	etcd是由CoreOS开发，用于可靠地存储集群的配置数据的一种持久性，轻量型的，分布式的键-值数据存储。表示在任何给定时间点处的集群的整体状态。其他组件在注意到存储的变化之后，会变成相应的状态。
+	作为一个分布式系统，etcd的一致性算法采用：Raft算法。关于etcd所涉及的算法详细介绍在这篇博文中多有涉猎：https://www.jianshu.com/p/5aed73b288f7
+	etcd的官方网站如下：
+	https://coreos.com/etcd/
+
+	etcd集群的搭建必须使用奇数个节点数量，三个节点进行部署(都部署在node节点).
+
+部署etcd集群
+	下载安装etcd
+	在etcd的github地址下载最新版的二进制包：
+		https://github.com/coreos/etcd/releases
+	[root@wecloud-test-k8s-2 ssl]# wget https://github.com/coreos/etcd/releases/download/v3.2.18/etcd-v3.2.18-linux-amd64.tar.gz
+	[root@wecloud-test-k8s-2 ~]# tar xvf etcd-v3.2.18-linux-amd64.tar.gz
+	[root@wecloud-test-k8s-2 ~]# mv etcd-v3.2.18-linux-amd64/etcd* /usr/local/bin/
+设置etcd的服务管理文件
+	编辑/usr/lib/systemd/system/etcd.service服务管理文件：
+[Unit]
+Description=Etcd Server
+After=network.target
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/coreos
+
+[Service]
+Type=notify
+WorkingDirectory=/var/lib/etcd/
+EnvironmentFile=-/etc/etcd/etcd.conf
+ExecStart=/usr/local/bin/etcd \
+  --name ${ETCD_NAME} \
+  --cert-file=/etc/kubernetes/ssl/kubernetes.pem \
+  --key-file=/etc/kubernetes/ssl/kubernetes-key.pem \
+  --peer-cert-file=/etc/kubernetes/ssl/kubernetes.pem \
+  --peer-key-file=/etc/kubernetes/ssl/kubernetes-key.pem \
+  --trusted-ca-file=/etc/kubernetes/ssl/ca.pem \
+  --peer-trusted-ca-file=/etc/kubernetes/ssl/ca.pem \
+  --initial-advertise-peer-urls ${ETCD_INITIAL_ADVERTISE_PEER_URLS} \
+  --listen-peer-urls ${ETCD_LISTEN_PEER_URLS} \
+  --listen-client-urls ${ETCD_LISTEN_CLIENT_URLS},http://127.0.0.1:2379 \
+  --advertise-client-urls ${ETCD_ADVERTISE_CLIENT_URLS} \
+  --initial-cluster-token ${ETCD_INITIAL_CLUSTER_TOKEN} \
+  --initial-cluster infra1=https://192.168.99.189:2380,infra2=https://192.168.99.185:2380,infra3=https://192.168.99.196:2380 \
+  --initial-cluster-state new \
+  --data-dir=${ETCD_DATA_DIR}
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+-----------------------------
+（1）–initial-cluster指定了etcd集群各节点的名称和url地址 
+（2）服务启动参数在EnvironmentFile指定的文件（/etc/etcd/etcd.conf）中进行定义。 
+（3）启动参数中还指定了各证书的绝对路径。 
+（4）指定了工作路径为/var/lib/etcd/，数据路径为/var/lib/etcd/，所以需要提前进行创建：
+	[root@wecloud-test-k8s-2 ~]# mkdir -p /var/lib/etcd
+
+设置etcd配置文件
+	上述启动脚本中指定etcd服务的配置文件路径为/etc/etcd/etcd.conf（首先创建/etc/etcd/目录）：
+	[root@wecloud-test-k8s-2 ~]# mkdir -p /etc/etcd/
+etcd.conf内容如下：
+	# [member]
+ETCD_NAME=infra1
+ETCD_DATA_DIR="/var/lib/etcd"
+ETCD_LISTEN_PEER_URLS="https://192.168.134.134:2380"
+ETCD_LISTEN_CLIENT_URLS="https://192.168.134.134:2379"
+
+#[cluster]
+ETCD_INITIAL_ADVERTISE_PEER_URLS="https://192.168.134.134:2380"
+ETCD_INITIAL_CLUSTER_TOKEN="etcd-cluster"
+ETCD_ADVERTISE_CLIENT_URLS="https://192.168.134.134:2379"
+--------------------- 
+在其他两个节点上也需要进行相应的配置，name需要修改，并且将上面的IP地址改成相应节点的IP地址即可。
+
+启动etcd服务
+	先向systemctl中注册etcd服务，然后启动etcd：
+	systemctl daemon-reload         
+	systemctl start etcd                    #启动etcd服务
+	systemctl enable etcd                   #将该服务设置为开机自启动
+
+	在上述三个几点中要同时执行启动操作，否则在检测其他节点为未启动状态，从而导致启动失败。
+
+	查看服务是否启动正常：
+	[root@wecloud-test-k8s-2 ~]# systemctl status etcd.service 
+● etcd.service - Etcd Server
+   Loaded: loaded (/usr/lib/systemd/system/etcd.service; enabled; vendor preset: disabled)
+   Active: active (running) since 一 2018-04-09 22:56:31 CST; 9h ago
+     Docs: https://github.com/coreos
+ Main PID: 17478 (etcd)
+   CGroup: /system.slice/etcd.service
+           └─17478 /usr/local/bin/etcd --name infra1 --cert-file=/etc/kubernetes/ssl/kubernetes.pem --key-file=/etc/kubernetes/ssl/kubern...
+
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: e23bf6fd185b2dc5 became follower at term 318
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: raft.node: e23bf6fd185b2dc5 elected leader c9b9711086e865e3 at term 318
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: published {Name:infra1 ClientURLs:[https://192.168.99.189:2379]} to clus...9ef27d
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: ready to serve client requests
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: set the initial cluster version to 3.2
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: enabled capabilities for version 3.2
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: ready to serve client requests
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal systemd[1]: Started Etcd Server.
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: serving client requests on 192.168.99.189:2379
+4月 09 22:56:31 wecloud-test-k8s-2.novalocal etcd[17478]: serving insecure client requests on 127.0.0.1:2379, this is strongly discouraged!
+Hint: Some lines were ellipsized, use -l to show in full.
+---------------------
+
+查看etcd集群状态
+	接下来查看etcd集群的健康状态是否正常：
+	[root@wecloud-test-k8s-2 ~]# etcdctl \
+> --ca-file=/etc/kubernetes/ssl/ca.pem \
+> --cert-file=/etc/kubernetes/ssl/kubernetes.pem \
+> --key-file=/etc/kubernetes/ssl/kubernetes-key.pem \
+> cluster-health
+member c9b9711086e865e3 is healthy: got healthy result from https://192.168.99.185:2379
+member e23bf6fd185b2dc5 is healthy: got healthy result from https://192.168.99.189:2379
+member e8523f41c93079cb is healthy: got healthy result from https://192.168.99.196:2379
+--------------------- 
+	可以看到三个etcd的节点都是healthy，说明集群状态是正常的。
+
+小结
+	k8s使用etcd存储所有的数据，对整个k8s的状态判断有着非常重要的作用，在生产环境中建议将etcd集群单独部署。后续将会介绍k8s使用etcd集群的实例。

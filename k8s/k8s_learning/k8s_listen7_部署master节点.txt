@@ -1,0 +1,332 @@
+k8s部署master节点
+	在之前的章节介绍过，k8s的控制节点扮演着整个调度和管理的角色，所以是非常关键的一部分。k8s的master节点主要包含三个部分：
+	1.kube-apiserver提供了统一的资源操作入口；
+	2.kube-scheduler是一个资源调度器，它根据特定的调度算法把pod生成到指定的计算节点中；
+	3.kube-controller-manager也是运行在控制节点上一个很关键的管理控制组件；
+	kube-scheduler、kube-controller-manager和kube-apiserver三者的功能紧密相关；
+	同时只能有一个kube-scheduler、kube-controller-manager进程处于工作状态，如果运行多个，则需要通过选举产生一个leader;
+	因为k8s各节点之间是进行加密传输的，所以确认证书文件是否已经配置好:
+	[root@wecloud-test-k8s-1 ssl]# cd /etc/kubernetes/ssl/
+	[root@wecloud-test-k8s-1 ssl]# ls
+	admin-key.pem  admin.pem  ca-key.pem  ca.pem  kube-proxy-key.pem  kube-proxy.pem  kubernetes-key.pem  kubernetes.pem
+
+部署master节点
+	下载最新版的二进制文件
+	为了方便部署，在官网下载指定版本的kubernetes-server包(server包中已经包含了client的二进制文件)：
+	[root@wecloud-test-k8s-1 ~]# wget   https://github.com/kubernetes/kubernetes/releases/download/v1.8.10/kubernetes.tar.gz
+	[root@wecloud-test-k8s-1 ~]# tar xvf kubernetes.tar.gz
+	[root@wecloud-test-k8s-1 ~]# cd kubernetes/
+	[root@wecloud-test-k8s-1 kubernetes]# cp server/bin/{kube-apiserver,kube-controller-manager,kube-scheduler,kubectl,kube-proxy,kubelet} /usr/local/bin/
+
+
+配置和启动 kube-apiserver
+	创建kube-apiserver的service配置文件
+	kube-apiserver的服务启动文件（/usr/lib/systemd/system/kube-apiserver.service）内容如下：
+------------------------------
+[Unit]
+Description=Kubernetes API Service
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+After=network.target
+After=etcd.service
+
+[Service]
+EnvironmentFile=-/etc/kubernetes/config
+EnvironmentFile=-/etc/kubernetes/apiserver
+ExecStart=/usr/local/bin/kube-apiserver \
+        $KUBE_LOGTOSTDERR \
+        $KUBE_LOG_LEVEL \
+        $KUBE_ETCD_SERVERS \
+        $KUBE_API_ADDRESS \
+        $KUBE_API_PORT \
+        $KUBELET_PORT \
+        $KUBE_ALLOW_PRIV \
+        $KUBE_SERVICE_ADDRESSES \
+        $KUBE_ADMISSION_CONTROL \
+        $KUBE_API_ARGS
+Restart=on-failure
+Type=notify
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+------------
+该服务管理文件中涉及两个配置文件：/etc/kubernetes/config 和 /etc/kubernetes/apiserver， 其中/etc/kubernetes/config是kube-apiserver、kube-controller-manager、kube-scheduler、kubelet、kube-proxy共同使用。
+
+/etc/kubernetes/config内容如下：
+-----------------------
+###
+# kubernetes system config
+#   
+# The following values are used to configure various aspects of all
+# kubernetes services, including
+#
+#   kube-apiserver.service
+#   kube-controller-manager.service
+#   kube-scheduler.service
+#   kubelet.service
+#   kube-proxy.service
+# logging to stderr means we get it in the systemd journal
+KUBE_LOGTOSTDERR="--logtostderr=true"
+
+# journal message level, 0 is debug
+KUBE_LOG_LEVEL="--v=0"
+
+# Should this cluster be allowed to run privileged docker containers
+KUBE_ALLOW_PRIV="--allow-privileged=true"
+
+# How the controller-manager, scheduler, and proxy find the apiserver
+#KUBE_MASTER="--master=http://sz-pg-oam-docker-test-001.tendcloud.com:8080"
+KUBE_MASTER="--master=http://192.168.99.183:8080"
+---------------------
+另外一个/etc/kubernetes/apiserver是kube-apiserve的主配置文件：
+-----------------
+###
+## kubernetes system config
+##
+## The following values are used to configure the kube-apiserver
+##
+#
+## The address on the local server to listen to.
+#KUBE_API_ADDRESS="--insecure-bind-address=sz-pg-oam-docker-test-001.tendcloud.com"
+KUBE_API_ADDRESS="--advertise-address=192.168.99.183 --bind-address=192.168.99.183 --insecure-bind-address=192.168.99.183"
+#
+## The port on the local server to listen on.
+#KUBE_API_PORT="--port=8080"
+#
+## Port minions listen on
+#KUBELET_PORT="--kubelet-port=10250"
+#
+## Comma separated list of nodes in the etcd cluster
+KUBE_ETCD_SERVERS="--etcd-servers=https://192.168.99.189:2379,https://192.168.99.185:2379,https://192.168.99.196:2379"
+#
+## Address range to use for services
+KUBE_SERVICE_ADDRESSES="--service-cluster-ip-range=10.254.0.0/16"
+#
+## default admission control policies
+KUBE_ADMISSION_CONTROL="--admission-control=ServiceAccount,NamespaceLifecycle,NamespaceExists,LimitRanger,ResourceQuota"
+#
+## Add your own!
+KUBE_API_ARGS="--authorization-mode=RBAC --runtime-config=rbac.authorization.k8s.io/v1beta1 --kubelet-https=true --experimental-bootstrap-token-auth --token-auth-file=/etc/kubernetes/token.csv --service-node-port-range=30000-32767 --tls-cert-file=/etc/kubernetes/ssl/kubernetes.pem --tls-private-key-file=/etc/kubernetes/ssl/kubernetes-key.pem --client-ca-file=/etc/kubernetes/ssl/ca.pem --service-account-key-file=/etc/kubernetes/ssl/ca-key.pem --etcd-cafile=/etc/kubernetes/ssl/ca.pem --etcd-certfile=/etc/kubernetes/ssl/kubernetes.pem --etcd-keyfile=/etc/kubernetes/ssl/kubernetes-key.pem --enable-swagger-ui=true --apiserver-count=3 --audit-log-maxage=30 --audit-log-maxbackup=3 --audit-log-maxsize=100 --audit-log-path=/var/lib/audit.log --event-ttl=1h"
+---------------------
+kube-scheduler、kube-controller-manager 一般和 kube-apiserver 部署在同一台机器上，它们使用非安全端口和 kube-apiserver通信; 
+kubelet、kube-proxy、kubectl 部署在其它 Node 节点上，如果通过安全端口访问 kube-apiserver，则必须先通过 TLS 证书认证，再通过 RBAC 授权； 
+kube-proxy、kubectl 通过在使用的证书里指定相关的 User、Group 来达到通过 RBAC 授权的目的； 
+如果使用了 kubelet TLS Boostrap 机制，则不能再指定 –kubelet-certificate-authority、–kubelet-client-certificate 和 –kubelet-client-key 选项，否则后续 kube-apiserver 校验 kubelet 证书时出现 ”x509: certificate signed by unknown authority“ 错误；
+
+启动kube-apiserver
+	启动并设置kube-apiserver服务开机自启动：
+	
+[root@wecloud-test-k8s-1 kubernetes]# systemctl daemon-reload
+[root@wecloud-test-k8s-1 kubernetes]# systemctl enable kube-apiserver
+[root@wecloud-test-k8s-1 kubernetes]# systemctl start kube-apiserver
+[root@wecloud-test-k8s-1 kubernetes]# systemctl status kube-apiserver
+● kube-apiserver.service - Kubernetes API Service
+   Loaded: loaded (/usr/lib/systemd/system/kube-apiserver.service; enabled; vendor preset: disabled)
+   Active: active (running) since 二 2018-04-10 22:41:56 CST; 11min ago
+     Docs: https://github.com/GoogleCloudPlatform/kubernetes
+ Main PID: 19418 (kube-apiserver)
+   CGroup: /system.slice/kube-apiserver.service
+           └─19418 /usr/local/bin/kube-apiserver --logtostderr=true --v=0 --etcd-servers=https://192.168.99.189:2379,https://192.168.99.1...
+
+4月 10 22:42:11 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:11.414685   19418 storage_rbac.go:257] created role...ystem
+4月 10 22:42:11 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:11.832312   19418 storage_rbac.go:257] created role...ystem
+4月 10 22:42:12 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:12.229856   19418 storage_rbac.go:257] created role...ystem
+4月 10 22:42:12 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:12.497168   19418 storage_rbac.go:257] created role...ublic
+4月 10 22:42:12 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:12.703731   19418 storage_rbac.go:287] created role...ublic
+4月 10 22:42:12 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:12.877033   19418 storage_rbac.go:287] created role...ystem
+4月 10 22:42:13 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:13.192097   19418 storage_rbac.go:287] created role...ystem
+4月 10 22:42:13 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:13.454727   19418 storage_rbac.go:287] created role...ystem
+4月 10 22:42:13 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:13.634617   19418 storage_rbac.go:287] created role...ystem
+4月 10 22:42:13 wecloud-test-k8s-1.novalocal kube-apiserver[19418]: I0410 22:42:13.913096   19418 storage_rbac.go:287] created role...ystem
+Hint: Some lines were ellipsized, use -l to show in full.
+
+配置和启动 kube-controller-manager
+	创建kube-controller-manager服务的service文件
+kube-controller-manager服务的配置为/usr/lib/systemd/system/kube-controller-manager.service文件：
+
+----------------
+[Unit]
+Description=Kubernetes Controller Manager
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+
+[Service]
+EnvironmentFile=-/etc/kubernetes/config
+EnvironmentFile=-/etc/kubernetes/controller-manager
+ExecStart=/usr/local/bin/kube-controller-manager \
+        $KUBE_LOGTOSTDERR \
+        $KUBE_LOG_LEVEL \
+        $KUBE_MASTER \
+        $KUBE_CONTROLLER_MANAGER_ARGS
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+---------------------
+该服务也使用了/etc/kubernetes/config配置文件。
+
+还需要配置/etc/kubernetes/controller-manager配置文件：
+###
+# The following values are used to configure the kubernetes controller-manager
+
+# defaults from config and apiserver should be adequate
+
+# Add your own!
+KUBE_CONTROLLER_MANAGER_ARGS="--address=127.0.0.1 --service-cluster-ip-range=10.254.0.0/16 --cluster-name=kubernetes --cluster-signing-cert-file=/etc/kubernetes/ssl/ca.pem --cluster-signing-key-file=/etc/kubernetes/ssl/ca-key.pem  --service-account-private-key-file=/etc/kubernetes/ssl/ca-key.pem --root-ca-file=/etc/kubernetes/ssl/ca.pem --leader-elect=true"
+---------------------
+–service-cluster-ip-range是指定 Cluster 中 Service 的CIDR范围，必须和kube-apiserver 中的参数一致； 
+–root-ca-file 用来对 kube-apiserver 证书进行校验，指定该参数后，才会在Pod 容器的 ServiceAccount 中放置该 CA 证书文件；
+--------------------
+启动kube-controller-manager
+	启动并设置kube-controller-manager服务开机自启动：
+[root@wecloud-test-k8s-1 ~]# systemctl daemon-reload 
+[root@wecloud-test-k8s-1 ~]# systemctl enable kube-controller-manager.service 
+Created symlink from /etc/systemd/system/multi-user.target.wants/kube-controller-manager.service to /usr/lib/systemd/system/kube-controller-manager.service.
+[root@wecloud-test-k8s-1 ~]# systemctl start kube-controller-manager.service 
+[root@wecloud-test-k8s-1 ~]# systemctl status kube-controller-manager.service 
+● kube-controller-manager.service - Kubernetes Controller Manager
+   Loaded: loaded (/usr/lib/systemd/system/kube-controller-manager.service; enabled; vendor preset: disabled)
+   Active: active (running) since 三 2018-04-11 09:25:32 CST; 4s ago
+     Docs: https://github.com/GoogleCloudPlatform/kubernetes
+ Main PID: 20400 (kube-controller)
+   CGroup: /system.slice/kube-controller-manager.service
+           └─20400 /usr/local/bin/kube-controller-manager --logtostderr=true --v=0 --master=http://192.168.99.183:8080 --address=127.0.0....
+
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.625674   20400 controller_utils.go:1048]...ller
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.644221   20400 controller_utils.go:1048]...ller
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.645379   20400 controller_utils.go:1048]...ller
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.646144   20400 controller_utils.go:1048]...ller
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.710293   20400 controller_utils.go:1048]...ller
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.719435   20400 controller_utils.go:1048]...ller
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.719475   20400 garbagecollector.go:145] ...bage
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.723843   20400 controller_utils.go:1048]...ller
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.723870   20400 disruption.go:296] Sendin...ver.
+4月 11 09:25:33 wecloud-test-k8s-1.novalocal kube-controller-manager[20400]: I0411 09:25:33.726803   20400 controller_utils.go:1048]...ller
+Hint: Some lines were ellipsized, use -l to show in full.
+--------------------- 
+配置和启动 kube-scheduler
+创建kube-scheduler的service启动文件和配置文件
+kube-scheduler的服务启动文件为/usr/lib/systemd/system/kube-scheduler.service:
+cat /usr/lib/systemd/system/kube-scheduler.service
+[Unit]
+Description=Kubernetes Scheduler Plugin
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+
+[Service]
+EnvironmentFile=-/etc/kubernetes/config
+EnvironmentFile=-/etc/kubernetes/scheduler
+ExecStart=/usr/local/bin/kube-scheduler \
+            $KUBE_LOGTOSTDERR \
+            $KUBE_LOG_LEVEL \
+            $KUBE_MASTER \
+            $KUBE_SCHEDULER_ARGS
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+---------------------
+kube-scheduler的配置文件为/etc/kubernetes/scheduler， 内容如下：
+###
+# kubernetes scheduler config
+
+# default config should be adequate
+
+# Add your own!
+KUBE_SCHEDULER_ARGS="--leader-elect=true --address=127.0.0.1"
+--------------------- 
+启动kube-scheduler服务
+启动并设置kube-scheduler服务开机自启动：
+	[root@wecloud-test-k8s-1 ~]# systemctl daemon-reload 
+[root@wecloud-test-k8s-1 ~]# systemctl enable kube-scheduler.service 
+Created symlink from /etc/systemd/system/multi-user.target.wants/kube-scheduler.service to /usr/lib/systemd/system/kube-scheduler.service.
+[root@wecloud-test-k8s-1 ~]# systemctl start kube-scheduler.service 
+[root@wecloud-test-k8s-1 ~]# systemctl status kube-scheduler.service 
+● kube-scheduler.service - Kubernetes Scheduler Plugin
+   Loaded: loaded (/usr/lib/systemd/system/kube-scheduler.service; enabled; vendor preset: disabled)
+   Active: active (running) since 三 2018-04-11 09:30:38 CST; 3s ago
+     Docs: https://github.com/GoogleCloudPlatform/kubernetes
+ Main PID: 20536 (kube-scheduler)
+   CGroup: /system.slice/kube-scheduler.service
+           └─20536 /usr/local/bin/kube-scheduler --logtostderr=true --v=0 --master=http://192.168.99.183:8080 --leader-elect=true --addre...
+
+4月 11 09:30:38 wecloud-test-k8s-1.novalocal systemd[1]: Started Kubernetes Scheduler Plugin.
+4月 11 09:30:38 wecloud-test-k8s-1.novalocal systemd[1]: Starting Kubernetes Scheduler Plugin...
+4月 11 09:30:38 wecloud-test-k8s-1.novalocal kube-scheduler[20536]: I0411 09:30:38.844579   20536 controller_utils.go:1041] Waiting...oller
+4月 11 09:30:38 wecloud-test-k8s-1.novalocal kube-scheduler[20536]: I0411 09:30:38.944956   20536 controller_utils.go:1048] Caches ...oller
+4月 11 09:30:38 wecloud-test-k8s-1.novalocal kube-scheduler[20536]: I0411 09:30:38.945311   20536 leaderelection.go:174] attempting...se...
+4月 11 09:30:39 wecloud-test-k8s-1.novalocal kube-scheduler[20536]: I0411 09:30:39.014761   20536 leaderelection.go:184] successful...duler
+4月 11 09:30:39 wecloud-test-k8s-1.novalocal kube-scheduler[20536]: I0411 09:30:39.015057   20536 event.go:218] Event(v1.ObjectReference...
+Hint: Some lines were ellipsized, use -l to show in full.
+---------------------
+验证 master 节点功能
+通过kubectl命令可以查看k8s各组件的状态：
+[root@wecloud-test-k8s-1 ~]# kubectl get cs
+NAME                 STATUS    MESSAGE              ERROR
+controller-manager   Healthy   ok                   
+scheduler            Healthy   ok                   
+etcd-2               Healthy   {"health": "true"}   
+etcd-1               Healthy   {"health": "true"}   
+etcd-0               Healthy   {"health": "true"}   
+---------------------
+这里分享一个问题的解决方法，我再多次执行查看状态的时候发现etcd的状态总是会有部分节点出现Unhealthy的状态。
+[root@wecloud-test-k8s-1 ~]# kubectl get componentstatuses
+NAME                 STATUS      MESSAGE                                  ERROR
+controller-manager   Healthy     ok                                       
+scheduler            Healthy     ok                                       
+etcd-0               Healthy     {"health": "true"}                       
+etcd-2               Healthy     {"health": "true"}                       
+etcd-1               Unhealthy   HTTP probe failed with statuscode: 503   
+
+[root@wecloud-test-k8s-1 ~]# kubectl get componentstatuses
+NAME                 STATUS      MESSAGE                                  ERROR
+scheduler            Healthy     ok                                       
+controller-manager   Healthy     ok                                       
+etcd-0               Healthy     {"health": "true"}                       
+etcd-2               Unhealthy   HTTP probe failed with statuscode: 503   
+etcd-1               Unhealthy   HTTP probe failed with statuscode: 503 
+---------------------
+现象是etcd的监控状态非常不稳定，查看日志发现etcd服务的各节点之间的心跳检测出现了问题：
+root@zhangchi-ThinkPad-T450s:~# ssh 192.168.99.189
+[root@wecloud-test-k8s-2 ~]# systemctl status etcd
+● etcd.service - Etcd Server
+   Loaded: loaded (/usr/lib/systemd/system/etcd.service; enabled; vendor preset: disabled)
+   Active: active (running) since 一 2018-04-09 22:56:31 CST; 1 day 10h ago
+     Docs: https://github.com/coreos
+ Main PID: 17478 (etcd)
+   CGroup: /system.slice/etcd.service
+           └─17478 /usr/local/bin/etcd --name infra1 --cert-file=/etc/kubernetes/ssl/kubernetes.pem --key-file=/etc/kubernetes/ssl/kubern...
+
+4月 11 09:33:35 wecloud-test-k8s-2.novalocal etcd[17478]: e23bf6fd185b2dc5 [quorum:2] has received 1 MsgVoteResp votes and 1 vote ...ctions
+4月 11 09:33:36 wecloud-test-k8s-2.novalocal etcd[17478]: e23bf6fd185b2dc5 received MsgVoteResp from c9b9711086e865e3 at term 337
+4月 11 09:33:36 wecloud-test-k8s-2.novalocal etcd[17478]: e23bf6fd185b2dc5 [quorum:2] has received 2 MsgVoteResp votes and 1 vote ...ctions
+4月 11 09:33:36 wecloud-test-k8s-2.novalocal etcd[17478]: e23bf6fd185b2dc5 became leader at term 337
+4月 11 09:33:36 wecloud-test-k8s-2.novalocal etcd[17478]: raft.node: e23bf6fd185b2dc5 elected leader e23bf6fd185b2dc5 at term 337
+4月 11 09:33:41 wecloud-test-k8s-2.novalocal etcd[17478]: timed out waiting for read index response
+4月 11 09:33:46 wecloud-test-k8s-2.novalocal etcd[17478]: failed to send out heartbeat on time (exceeded the 100ms timeout for 401...516ms)
+4月 11 09:33:46 wecloud-test-k8s-2.novalocal etcd[17478]: server is likely overloaded
+4月 11 09:33:46 wecloud-test-k8s-2.novalocal etcd[17478]: failed to send out heartbeat on time (exceeded the 100ms timeout for 401.80886ms)
+4月 11 09:33:46 wecloud-test-k8s-2.novalocal etcd[17478]: server is likely overloaded
+Hint: Some lines were ellipsized, use -l to show in full.
+---------------------
+报错信息主要为：failed to send out heartbeat on time (exceeded the 100ms timeout for 401.80886ms)
+
+心跳检测报错主要与以下因素有关（磁盘速度、cpu性能和网络不稳定问题）：
+
+etcd使用了raft算法，leader会定时地给每个follower发送心跳，如果leader连续两个心跳时间没有给follower发送心跳，etcd会打印这个log以给出告警。通常情况下这个issue是disk运行过慢导致的，leader一般会在心跳包里附带一些metadata，leader需要先把这些数据固化到磁盘上，然后才能发送。写磁盘过程可能要与其他应用竞争，或者因为磁盘是一个虚拟的或者是SATA类型的导致运行过慢，此时只有更好更快磁盘硬件才能解决问题。etcd暴露给Prometheus的metrics指标walfsyncduration_seconds就显示了wal日志的平均花费时间，通常这个指标应低于10ms。
+
+第二种原因就是CPU计算能力不足。如果是通过监控系统发现CPU利用率确实很高，就应该把etcd移到更好的机器上，然后通过cgroups保证etcd进程独享某些核的计算能力，或者提高etcd的priority。
+
+第三种原因就可能是网速过慢。如果Prometheus显示是网络服务质量不行，譬如延迟太高或者丢包率过高，那就把etcd移到网络不拥堵的情况下就能解决问题。但是如果etcd是跨机房部署的，长延迟就不可避免了，那就需要根据机房间的RTT调整heartbeat-interval，而参数election-timeout则至少是heartbeat-interval的5倍。
+
+本次实验是在openstack云主机上进行的，所以磁盘io不足是已知的问题，所以需要修改hearheat-interval的值（调大一些）。
+
+在etcd服务节点上修改/etc/etcd/etcd.conf文件，添加如下内容：
+
+6秒检测频率
+ETCD_HEARTBEAT_INTERVAL=6000     
+ETCD_ELECTION_TIMEOUT=30000
+然后重启etcd服务
+-----------
+小结
+k8s的master节点起着调度、管理和对外提供服务的功能，所以需要设计成高可用方式，但是k8s的master本身是不支持高可用的，我们可以借助haproxy、keepalived等工具实现高可用负载均衡。

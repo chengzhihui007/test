@@ -54,25 +54,25 @@
 
 	生成配置文件模板：
 		cat > ca-config.json <<EOF
- 		{	
-  			"signing": {
-    				"default": {
-      					"expiry": "87600h"
-    				},
-    				"profiles": {
-      					"kubernetes": {
-       	 					"usages": [
-            						"signing",
-            						"key encipherment",
-            						"server auth",
-            						"client auth"
-        					],
-        					"expiry": "87600h"
-      					}
-    				}
-  			}
-		}
-		EOF
+{
+  "signing": {
+    "default": {
+      "expiry": "87600h"
+    },
+    "profiles": {
+      "kubernetes": {
+        "usages": [
+            "signing",
+            "key encipherment",
+            "server auth",
+            "client auth"
+        ],
+        "expiry": "87600h"
+      }
+    }
+  }
+}
+EOF
 
 	expiry: 其中expiry是过期时间，可以指定多个；
 	signing: 表示该证书可以签名其他证书；
@@ -81,22 +81,22 @@
 
 	创建CA证书签名请求
 	创建ca-csr.json文件：
-		{
- 			 "CN": "kubernetes",
-  			 "key": {
-    				"algo": "rsa",
-    				"size": 2048
-  			 },
-  			"names": [
-   				 {
-     					 "C": "CN",
-     					 "ST": "ZheJiang",
-     					 "L": "HangZhou",
-     					 "O": "k8s",
-      					 "OU": "System"
-    				}
-  			]
-		}
+{
+  "CN": "kubernetes",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "ZheJiang",
+      "L": "HangZhou",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
 
 	"CN"：Common Name,kube-apiserver从证书中提取该字段作为请求的用户名(User Name);浏览器使用该字段验证网站是否合法；
 	"O":Organization,kube-apiserver从证书中提取该字段作为请求用户所属的组(Group);
@@ -109,35 +109,37 @@
 
 	创建kubernetes证书
 		创建kubernetes证书签名请求文件kubernetes-csr.json:
-			{
-    				"CN": "kubernetes",
-    				"hosts": [
-      					"127.0.0.1",
-      					"192.168.99.183",
-				        "192.168.99.189",
-      					"192.168.99.185",
-      					"192.168.99.196",
-      					"10.254.0.1",
-      					"kubernetes",
-      					"kubernetes.default",
-      					"kubernetes.default.svc",
-      					"kubernetes.default.svc.cluster",
-      					"kubernetes.default.svc.cluster.local"
-    				],
-    				"key": {
-        				"algo": "rsa",
-        				"size": 2048
-    				},
-    				"names": [
-        				{
-            					"C": "CN",
-            					"ST": "ZheJiang",
-            					"L": "HangZhou",
-            					"O": "k8s",
-            					"OU": "System"
-        				}
-    				]
-			}
+
+{
+    "CN": "kubernetes",
+    "hosts": [
+      "127.0.0.1",
+      "192.168.134.134",
+      "192.168.134.148",
+      "192.168.134.149",
+      "192.168.134.150",
+      "10.254.0.1",
+      "kubernetes",
+      "kubernetes.default",
+      "kubernetes.default.svc",
+      "kubernetes.default.svc.cluster",
+      "kubernetes.default.svc.cluster.local"
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "CN",
+            "ST": "ZheJiang",
+            "L": "HangZhou",
+            "O": "k8s",
+            "OU": "System"
+        }
+    ]
+}
+
 
 		host字段不为空则需要指定授权使用该证书的IP或域名列表，把我们整个集群需要的节点都添加进去。
 
@@ -151,23 +153,23 @@
 
 	创建admin证书
 		创建admin证书签名请求文件admin-csr.json:
-			{
-  				"CN": "admin",
-  				"hosts": [],
-  				"key": {
-    					"algo": "rsa",
-    					"size": 2048
-  				},
-  				"names": [
-    					{
-      						"C": "CN",
-      						"ST": "BeiJing",
-      						"L": "BeiJing",
-      						"O": "system:masters",
-      						"OU": "System"
-    					}
-  				]
-			}
+{
+  "CN": "admin",
+  "hosts": [],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "BeiJing",
+      "L": "BeiJing",
+      "O": "system:masters",
+      "OU": "System"
+    }
+  ]
+}
 
 
 	后续kube-apiserver使用RBAC对客户端(如kubelet、kube-proxy、Pod)请求进行授权；
@@ -184,23 +186,25 @@ admin-csr.json  admin.pem      ca.csr          ca-key.pem   config.json  kuberne
 
 	创建kube-proxy证书
 		创建kube-proxy证书签名请求文件 kube-proxy-csr.json:
-			{
-  				"CN": "system:kube-proxy",
-  				"hosts": [],
-  				"key": {
-    					"algo": "rsa",
-    					"size": 2048
-  				},
-  				"names": [
-    					{
-      						"C": "CN",
-      						"ST": "BeiJing",
-      						"L": "BeiJing",
-      						"O": "k8s",
-      						"OU": "System"
-    					}
-  				]
-			}
+{
+  "CN": "system:kube-proxy",
+  "hosts": [],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "BeiJing",
+      "L": "BeiJing",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
+
+
 
 	CN指定该证书的User为system:kube-proxy;
 	kube-apiserver预定义的RoleBinding cluster-admin 将User system:kube-proxy 与Role system:node-proxier绑定，该Role授予了调用kube-apiserver Proxy相关API的权限；

@@ -1,0 +1,283 @@
+docker的安装和基本使用
+docker简介和虚拟化
+docker是一种可以把应用程序自动部署到容器的开源引擎，他和虚拟化相比具有轻量和快速部署删除的特点，可以使软件开发偏向于微服务架构方向。从资源成本和管理方式上都比传统的虚拟化有着太多的优势，但是对运行环境的要求较高。
+
+docker的组件包含以下四个：
+
+（1）docker的客户端和服务端； 
+（2）docker镜像（images）； 
+（3）registry（仓库，比如官方的docker hub） 
+（4）docker容器（container，算是images实例化的一个“系统”）
+
+docker的技术包括： 
+（1）一个原生的linux容器； 
+（2）linux内核命名空间，用于隔离文件系统、进程和网络； 
+（3）文件系统隔离； 
+（4）进程隔离：每个容器都运行在自己的root文件系统中； 
+（5）网络隔离：容器间的虚拟网络接口和ip地址都是分开的； 
+（6）资源隔离分组：使用cgroups，将cpu和内存之类的资源独立分配给每个docker容器； 
+（7）写实复制：文件系统都是通过写时复制创建的，意味着文件系统是分层的、快速的，而且占用的磁盘空间小； 
+（8）日志：可以使用docker log进行查看；
+总结一句话：docker速度快、好移植，但是安全性低；虚拟机速度慢、不好移植、但是安全性高。
+但是随着以后的发展，docker应该可以克服这些问题。
+--------------
+docker安装
+docker的安装环境是在3.1内核以上，而且必须是64位（目前）的操作系统，内核必须支持并开启cgroup和命名空间功能。内核必须支持合适的存储驱动：（Device Mapper、AUFS、vfs、btrfs、ZFS）
+
+redhat/centos下安装
+1.查看内核版本信息：
+[root@localhost ~]# uname -a
+Linux localhost.localdomain 3.10.0-327.el7.x86_64 #1 SMP Thu Nov 19 22:10:57 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux
+2.查看是否支持device mapper：
+[root@localhost ~]# ls -l /sys/class/misc/device-mapper/
+总用量 0
+-r--r--r--. 1 root root 4096 11月 10 14:02 dev
+drwxr-xr-x. 2 root root    0 11月 10 14:02 power
+lrwxrwxrwx. 1 root root    0 11月 10 14:02 subsystem -> ../../../../class/misc
+-rw-r--r--. 1 root root 4096 11月  2 14:00 uevent
+[root@localhost ~]# grep device-mapper /proc/devices 
+253 device-mapper
+如果没有的话，安装device-mapper，并且加载device-mapper模块：
+[root@localhost ~]# yum install device-mapper -y
+[root@localhost ~]# modprobe dm_mod
+3.centos7的镜像中支持docker的安装，可以直接使用yum命令：
+[root@localhost ~]# yum install docker -y
+4.启动并且查看docker服务：
+[root@localhost ~]# systemctl start docker
+[root@localhost ~]# systemctl status docker
+● docker.service - Docker Application Container Engine
+   Loaded: loaded (/usr/lib/systemd/system/docker.service; enabled; vendor preset: disabled)
+   Active: active (running) since 三 2016-11-02 19:25:33 CST; 1 weeks 0 days ago
+     Docs: http://docs.docker.com
+ Main PID: 9354 (docker-current)
+   Memory: 2.8M
+   CGroup: /system.slice/docker.service
+           └─9354 /usr/bin/docker-current daemon --exec-opt native.cgroupdriver=systemd --selinux-enabled --log-driver=journald
+11月 09 16:41:05 localhost.localdomain docker-current[9354]: [35B blob data]
+11月 09 16:41:05 localhost.localdomain docker-current[9354]: [63B blob data]
+11月 09 16:41:05 localhost.localdomain docker-current[9354]: [50B blob data]
+11月 09 16:41:05 localhost.localdomain docker-current[9354]: [44B blob data]
+11月 09 16:41:05 localhost.localdomain docker-current[9354]: [46B blob data]
+11月 09 16:41:05 localhost.localdomain docker-current[9354]: [112B blob data]
+11月 09 16:41:06 localhost.localdomain docker-current[9354]: [44B blob data]
+11月 09 16:41:06 localhost.localdomain docker-current[9354]: [44B blob data]
+11月 09 17:21:46 localhost.localdomain docker-current[9354]: time="2016-11-09T17:21:46.678318978+08:00" level=info msg="{Action=networks, Username=root, LoginU...=19209}"
+11月 10 14:11:24 localhost.localdomain systemd[1]: Started Docker Application Container Engine.
+Hint: Some lines were ellipsized, use -l to show in full.
+docker的常见操作
+1.查看docker的整体信息： 
+主要列举了如下内容： 
+（1）容器的个数：整体的、运行中的、关闭着的； 
+（2）镜像的数量； 
+（3）docker的版本； 
+（4）文件驱动方式；
+除了上述之外，还有包括内核版本、网络、架构、cpu核数等信息；
+apps@vs026:~$ docker info 
+Containers: 11
+ Running: 7
+ Paused: 0
+ Stopped: 4
+Images: 11
+Server Version: 1.11.2
+Storage Driver: aufs
+ Root Dir: /var/lib/docker/aufs
+ Backing Filesystem: extfs
+ Dirs: 52
+ Dirperm1 Supported: false
+Logging Driver: json-file
+Cgroup Driver: cgroupfs
+Plugins: 
+ Volume: local
+ Network: bridge null host
+Kernel Version: 3.13.0-32-generic
+Operating System: Ubuntu precise (12.04.5 LTS)
+OSType: linux
+Architecture: x86_64
+CPUs: 2
+Total Memory: 9.767 GiB
+Name: vs026
+ID: WP3K:WSXO:NVQD:SUSO:OXJG:C3SG:Q7KO:NVR3:FMOG:OJ67:QYCI:JLBA
+Docker Root Dir: /var/lib/docker
+Debug mode (client): false
+Debug mode (server): false
+Registry: https://index.docker.io/v1/
+WARNING: No swap limit support
+image操作
+docker最核心的一个组件image，所有的容器（container）启动都需要依赖image，所以首先介绍关于image的操作；
+（1）查看当前系统中的docker的镜像列表： 
+从左到右分别是：所在库（直接书写名字，或者是“作者/镜像名称”这种形式），TAG版本，image的id，镜像创建时间，镜像大小。
+apps@vs026:~$ docker images 
+REPOSITORY             TAG                 IMAGE ID            CREATED             SIZE
+amsmonitor-front-img   2.0                 0f870e40f028        7 weeks ago         1.819 GB
+amsmonitor-img         2.0                 cf9c77e92c88        7 weeks ago         2.75 GB
+gitlab/gitlab-ce       latest              b846d4901187        9 weeks ago         1.205 GB
+<none>                 <none>              980e0e4c79ec        9 weeks ago         196.8 MB
+ams-front-img-1.1      latest              2202fe7dd95a        9 weeks ago         1.496 GB
+ams-monitor-img-1.3    latest              794c55046300        9 weeks ago         4.817 GB
+ubuntu                 latest              bd3d4369aebc        10 weeks ago        126.6 MB
+ams-monitor-1.0        latest              0cb60bbc1002        11 weeks ago        1.57 GB
+ams-mysql              latest              f1274036d505        4 months ago        318 MB
+oraclelinux            6.7                 3e4e34944a5a        5 months ago        221.3 MB
+ubuntu                 14.04               3876b81b5a81        9 months ago        187.9 MB
+apps@vs026:~$ 
+（2）搜索镜像
+除了上述的这些进行如果，在docker的官方仓库docker hub中还有着其他人push上去的公共镜像供大家下载使用，可以使用docker search进行查询：
+apps@vs026:~$ docker search centos
+NAME                            DESCRIPTION                                     STARS     OFFICIAL   AUTOMATED
+centos                          The official build of CentOS.                   2805      [OK]       
+jdeathe/centos-ssh              CentOS-6 6.8 x86_64 / CentOS-7 7.2.1511 x8...   46                   [OK]
+jdeathe/centos-ssh-apache-php   CentOS-6 6.8 x86_64 - Apache / PHP / PHP M...   22                   [OK]
+nimmis/java-centos              This is docker images of CentOS 7 with dif...   18                   [OK]
+consol/centos-xfce-vnc          Centos container with "headless" VNC sessi...   14                   [OK]
+gluster/gluster-centos          Official GlusterFS Image [ CentOS7 +  Glus...   12                   [OK]
+million12/centos-supervisor     Base CentOS-7 with supervisord launcher, h...   12                   [OK]
+torusware/speedus-centos        Always updated official CentOS docker imag...   8                    [OK]
+nathonfowlie/centos-jre         Latest CentOS image with the JRE pre-insta...   4                    [OK]
+centos/mariadb55-centos7                                                        3                    [OK]
+harisekhon/centos-java          Java on CentOS (OpenJDK, tags jre/jdk7-8)       2                    [OK]
+timhughes/centos                Centos with systemd installed and running       1                    [OK]
+darksheer/centos                Base Centos Image -- Updated hourly             1                    [OK]
+blacklabelops/centos            CentOS Base Image! Built and Updates Daily!     1                    [OK]
+harisekhon/centos-scala         Scala + CentOS (OpenJDK tags 2.10-jre7 - 2...   1                    [OK]
+sgfinans/docker-centos          CentOS with a running sshd and Docker           1                    [OK]
+vcatechnology/centos            A CentOS Image which is updated daily           0                    [OK]
+grossws/centos                  CentOS 6 and 7 base images with gosu and l...   0                    [OK]
+dmglab/centos                   CentOS with some extras - This is for the ...   0                    [OK]
+aguamala/centos                 CentOS base image                               0                    [OK]
+repositoryjp/centos             Docker Image for CentOS.                        0                    [OK]
+januswel/centos                 yum update-ed CentOS image                      0                    [OK]
+grayzone/centos                 auto build for centos.                          0                    [OK]
+kz8s/centos                     Official CentOS plus epel-release               0                    [OK]
+ustclug/centos                   USTC centos                                    0                    [OK]
+docker search会列举出centos的最新版本的镜像列表，带有official的是官方提供的镜像，除了官方的镜像之外，其他的镜像或多或少都是安装了其他的基础组件，在description中对这些镜像进行了介绍。用户可以根据自己的需求进行下载。如果是想要获取指定镜像的指定版本，在search的时候添加版本号即可：
+apps@vs026:~$ docker search centos:6.5
+NAME                                    DESCRIPTION                                     STARS     OFFICIAL   AUTOMATED
+berngp/docker-zabbix                    Runs Zabbix Server and Zabbix Web UI on a ...   59                   [OK]
+blalor/centos                           Bare-bones base CentOS 6.5 image                7                    [OK]
+hansode/centos-6.5-x86_64               * centos-6.5 minimal * openssh openssh-cli...   4                    
+traxtopel/docker-centos-gnome-desktop   Centos 6.5 32 bit VNC enabled desktop image.    3                    [OK]
+javiervivanco/docker-php-centos-65      PHP 5.3.3 based on CentOS 6.5                   2                    [OK]
+kintoandar/centos-6.5-x86_64            Clean CentOS 6.5 x86_64 build                   2                    
+vishy/centos-6.5                        CentOS 6.5 x86_64 + Updates + SSH @ 30Apri...   1                    [OK]
+pmdevel/oracle-xe                       Oracle XE on Centos 6.5                         1                    [OK]
+stefanorg/centos-php56                  centos 6.5 apache 2.2 php 5.6                   1                    [OK]
+kisenka/centos6-ruby                    CentOS 6.5 + Ruby 2.1.2 + Bundler               1                    [OK]
+c0nsaw/centos-6.5                                                                       0                    
+coolsun/centos-6.5                      update: Ansible, git                            0                    
+jlinoff/centos-6.5-x86_64-base          CentOS 6.5 base image for x86_64                0                    
+minhviet/centos-6.5                     centos-6.5-ssh                                  0                    
+komukomo/centos-sshd                    CentOS[tag] + sshd / tags: 6.5, 6.6, 6.7        0                    [OK]
+kisenka/centos6-epel                    CentOS 6.5 + EPEL repo (~250 MB)                0                    [OK]
+gpmidi/centos-6.5                       CentOS 6.5 base Docker image. Intended for...   0                    
+davejohnston/centos-6.5-yum-repo        CentOS 6.5 Yum Repository, based on the of...   0                    [OK]
+caligin/centos-puppetready              centos 6.5 with puppet ready for provisioning   0                    [OK]
+sergeyzh/centos6-epel                   Clean CentOS 6.5 + mc + EPEL repo               0                    [OK]
+kisenka/centos6-jekyll                  CentOS 6.5 + Ruby 2.1.2 + Bundler + Jekyll...   0                    [OK]
+jcheng/docker-pyethereum                A working container of the latest python i...   0                    [OK]
+joeriggs/scp-centos-6.5                 Base images for the SCS Project.                0                    
+skuenzli/centos-6.5-puppet-2.7          A convenient base image for doing developm...   0                    
+hagaico/centos-base-6.5                 Base Centos 6.5 copy of vishy/centos.           0                    
+（3）下载镜像到本地：
+其中minhviet是该镜像的所有者，centos-6.5是镜像的名称。镜像在下载的时候是以层级形式下载的，所以出现了多次的pull。
+apps@vs026:~$ docker pull minhviet/centos-6.5
+Using default tag: latest
+latest: Pulling from minhviet/centos-6.5
+a3ed95caeb02: Pull complete 
+98c94273a9d5: Pull complete 
+0f2a31ea7e9d: Pull complete 
+0b34ab11cdfc: Pull complete 
+8ebde1ae5514: Pull complete 
+843a100ff5c7: Pull complete 
+Digest: sha256:ae08a5463b2493e7ef69b1674ec326a1ae0a883a024a4e5155cf27b095aa21c1
+Status: Downloaded newer image for minhviet/centos-6.5:latest
+在本地查看获取到的镜像：
+apps@vs026:~$ docker images
+REPOSITORY             TAG                 IMAGE ID            CREATED             SIZE
+minhviet/centos-6.5    latest              070eb26b4a5c        2 years ago         305.5 MB
+除了下载镜像之外，我们还可以上传镜像到docker hub，这个和提交代码到github是相同的道理，但是在此之前，我们还是先学会如何去制作一个docker镜像。在后边的章节进行介绍。
+---------------------
+container操作
+容器的操作最关键的一点是在于如何从镜像生成一个容器，以及容器的打开、关闭、删除和导入导出操作，依次来进行介绍。
+1.运行一个容器：
+从一个指定的镜像去启动容器，并且指定容器的名称：
+apps@vs026:~$ docker run -i -t --name centos_test minhviet/centos-6.5 /bin/bash
+其中的-i保证容器的stdin是开启的，这个是为了让我们和容器持久的交互；-t是为创建的容器分配一个伪终端； –name指定了容器的名称（虽然docker会为你自动分配一个容器的id），minhviet/centos-6.5是启动容器的镜像。/bin/bash就是在启动容器后执行打开容器的shell环境。
+
+2.列举出当前系统上运行着的docker容器：
+apps@vs026:~$ docker ps
+CONTAINER ID        IMAGE                        COMMAND             CREATED             STATUS              PORTS                                                                                                                      NAMES
+30f3fb6775e8        oraclelinux:6.7              "/bin/bash"         25 hours ago        Up 25 hours                                                                                                                                    test_os
+e004935f81df        oraclelinux:6.7              "/bin/bash"         2 weeks ago         Up 6 days           0.0.0.0:8010->80/tcp                                                                                                       ams-monitor-front3.2
+b0fc43d2e0ad        oraclelinux:6.7              "/bin/bash"         2 weeks ago         Up 8 days           0.0.0.0:45->25/tcp, 0.0.0.0:3346->3306/tcp, 0.0.0.0:10350->10050/tcp, 0.0.0.0:10351->10051/tcp, 0.0.0.0:10352->10052/tcp   ams-monitor-3.2
+4f6d288e307c        amsmonitor-front-img:2.0     "/bin/bash"         7 weeks ago         Up 8 days           0.0.0.0:8090->80/tcp                                                                                                       amsmonitor-front-2.0
+01de5859dde4        amsmonitor-img:2.0           "/bin/bash"         7 weeks ago         Up 8 days           0.0.0.0:35->25/tcp, 0.0.0.0:3336->3306/tcp, 0.0.0.0:10250->10050/tcp, 0.0.0.0:10251->10051/tcp, 0.0.0.0:10252->10052/tcp   amsmonitor-2.0
+d4f72853f21c        ams-front-img-1.1:latest     "/bin/bash"         9 weeks ago         Up 8 days           0.0.0.0:80->80/tcp                                                                                                         ams-front-1.1
+这里只是运行着的容器，如果需要查看系统上的所有容器，可以添加-a参数：
+apps@vs026:~$ docker ps -a
+CONTAINER ID        IMAGE                        COMMAND             CREATED             STATUS                     PORTS                                                                                                                      NAMES
+30f3fb6775e8        oraclelinux:6.7              "/bin/bash"         25 hours ago        Up 25 hours                                                                                                                                           test_os
+e004935f81df        oraclelinux:6.7              "/bin/bash"         2 weeks ago         Up 6 days                  0.0.0.0:8010->80/tcp                                                                                                       ams-monitor-front3.2
+b0fc43d2e0ad        oraclelinux:6.7              "/bin/bash"         2 weeks ago         Up 8 days                  0.0.0.0:45->25/tcp, 0.0.0.0:3346->3306/tcp, 0.0.0.0:10350->10050/tcp, 0.0.0.0:10351->10051/tcp, 0.0.0.0:10352->10052/tcp   ams-monitor-3.2
+65fbda423dbf        oraclelinux:6.7              "/bin/bash"         2 weeks ago         Exited (127) 2 weeks ago                                                                                                                              desperate_minsky
+3e06f723e4f8        oraclelinux:6.7              "/bin/bash"         2 weeks ago         Exited (0) 2 weeks ago                                                                                                                                sleepy_jang
+4f6d288e307c        amsmonitor-front-img:2.0     "/bin/bash"         7 weeks ago         Up 8 days                  0.0.0.0:8090->80/tcp                                                                                                       amsmonitor-front-2.0
+01de5859dde4        amsmonitor-img:2.0           "/bin/bash"         7 weeks ago         Up 8 days                  0.0.0.0:35->25/tcp, 0.0.0.0:3336->3306/tcp, 0.0.0.0:10250->10050/tcp, 0.0.0.0:10251->10051/tcp, 0.0.0.0:10252->10052/tcp   amsmonitor-2.0
+8d96350ee357        ubuntu:latest                "/bin/bash"         9 weeks ago         Exited (130) 9 weeks ago                                                                                                                              gitlab
+d4f72853f21c        ams-front-img-1.1:latest     "/bin/bash"         9 weeks ago         Up 8 days                  0.0.0.0:80->80/tcp                                                                                                         ams-front-1.1
+11b97d3ec91a        ams-monitor-img-1.3:latest   "/bin/bash"         9 weeks ago         Up 8 days                  0.0.0.0:3326->3306/tcp, 0.0.0.0:10150->10050/tcp, 0.0.0.0:10151->10051/tcp, 0.0.0.0:10152->10052/tcp                       ams-monitor-1.4
+c188bb92f3ea        ams-monitor-1.0:latest       "/bin/bash"         11 weeks ago        Exited (130) 9 weeks ago                                                                                                                              ams-monitor
+可以查看status列观察容器的状态。
+3.关闭容器
+关闭一个运行中的容器，使用docker stop 命令：
+apps@vs026:~$ docker stop 30f3fb6775e8
+其中30f3fb6775e8是容器id，也可以换成容器的名称。
+4.打开一个容器
+apps@vs026:~$ docker start 30f3fb6775e8
+5.删除一个容器
+删除容器的时候为了遵守顺序可以先关闭一个运行的容器然后再删除它：
+apps@vs026:~$ docker rm 30f3fb6775e8
+6.容器的导出（容器—->镜像）
+容器的导入和导出都是为实现容器在宿主机之间的迁移。首先我们查看如何进行导导出。
+docker export 30f3fb6775e8 > /u01/test_os.tar.gz
+30f3fb6775e8为容器的id，将该容器导出到/u01的压缩文件。
+7.容器的导入
+将上述的压缩文件拷贝到其他安装有docker服务的宿主机，然后生成为镜像，然后通过该镜像启动容器。
+生成一个镜像叫oracle_test，TAG是1.0.
+[root@localhost ~]# cat test_os.tar.gz  | docker import - oracle_test:1.0
+查看镜像列表：
+[root@localhost ~]# docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+oracle_test         1.0                 7fb782bbe50a        24 hours ago        221.3 MB
+然后从该镜像启动容器，可以实现容器从A宿主机迁移到B宿主机。当然更好的方法是编写Dockerfile来得到镜像。
+---------------------
+其他常见操作
+1.查看容器和宿主机的端口映射：
+3306/tcp -> 0.0.0.0:3346
+10050/tcp -> 0.0.0.0:10350
+10051/tcp -> 0.0.0.0:10351
+10052/tcp -> 0.0.0.0:10352
+25/tcp -> 0.0.0.0:45
+其中左边的是容器内的端口，右边的是宿主机的端口，我们可以通过访问宿主机的端口来访问容器所映射的端口。
+查看容器的执行日志
+该命令以动态的方式显示了docker容器的整个执行过程。
+apps@vs026:~$ docker logs b0fc43d2e0ad
+3.查看容器的运行进程
+apps@vs026:~$ docker top e004935f81df
+UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+root                20605               20591               0                   Nov04               pts/1               00:00:00            /bin/bash
+root                23365               20605               0                   Nov04               ?                   00:00:00            /usr/sbin/sshd
+root                27594               20605               0                   Nov04               ?                   00:00:29            /usr/sbin/httpd
+48                  27596               27594               0                   Nov04               ?                   00:04:24            /usr/sbin/httpd
+48                  27597               27594               0                   Nov04               ?                   00:04:20            /usr/sbin/httpd
+48                  27598               27594               0                   Nov04               ?                   00:04:22            /usr/sbin/httpd
+48                  27599               27594               0                   Nov04               ?                   00:04:30            /usr/sbin/httpd
+48                  27600               27594               0                   Nov04               ?                   00:04:24            /usr/sbin/httpd
+48                  27601               27594               0                   Nov04               ?                   00:04:26            /usr/sbin/httpd
+48                  27602               27594               0                   Nov04               ?                   00:04:19            /usr/sbin/httpd
+48                  27603               27594               0                   Nov04               ?                   00:04:23            /usr/sbin/httpd
+48                  27656               27594               0                   Nov04               ?                   00:04:25            /usr/sbin/httpd
+48                  27743               27594               0                   Nov04               ?                   00:04:27            /usr/sbin/httpd
+48      
+---------------------
+小结
+	上述列举了docker的基本操作，但是还有很多细节需要在日常的工作中进行总结。关于docker如何和其他的集成软件(jenkins)、批量部署软件(ansible,saltstack等)进行配合，构建功能更加强大的开发，测试和生产环境是我们需要下功夫钻研的。 

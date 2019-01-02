@@ -1,0 +1,220 @@
+制作docker镜像
+构建镜像的方式
+上篇章节介绍了如何从docker hub上拉取镜像，同时我们也可以制作镜像上传到docker hub上。
+
+首先我们需要做一些准备工作：
+
+1.在docker hub上进行注册： 
+docker hub官网地址： 
+https://hub.docker.com/ 
+---------------------
+2.登录docker hub：
+
+可以选择在官网进行登录，也可以使用命令行进行登录。我选择在命令行登录，输入用户名密码即可。
+
+root@vs026:~# docker login 
+Login with your Docker ID to push and pull images from Docker Hub. If you don't have a Docker ID, head over to https://hub.docker.com to create one.
+Username: ********
+Password: 
+Login Succeeded
+1
+2
+3
+4
+5
+如果成功会提示“Login Succeeded”
+---------------------
+制作一个镜像
+我们所谓的制作镜像并不是从无到有制作，而是在官方提供的docker镜像基础上安装应用程序，生成基础的专有镜像，这个是微服务的基本组件。
+查看docker进行中的容器，或者从镜像中开启一个容器然后，我们选择后者进行示例：
+root@zhangchi-ThinkPad-T450s:~# docker ps
+CONTAINER ID        IMAGE                            COMMAND             CREATED             STATUS              PORTS               NAMES
+17c4fdee15b0        jlinoff/centos-6.5-x86_64-base   "/bin/bash"         27 seconds ago      Up 27 seconds                           centos_base
+docker commit
+我们以上述的容器为例，这是一个比较新的centos容器，我们在此基础上安装httpd服务，然后关闭该容器：
+root@zhangchi-ThinkPad-T450s:~# docker attach 17c4fdee15b0
+[root@17c4fdee15b0 /]# 
+[root@17c4fdee15b0 /]# 
+[root@17c4fdee15b0 /]# yum install httpd -y
+[root@17c4fdee15b0 /]# exit
+exit
+提交制定的容器（算是从容器—–>镜像）：
+root@zhangchi-ThinkPad-T450s:~# docker commit 17c4fdee15b0 zhangchiwd371/centos_httpd
+然后查看刚才提交的镜像的详细信息:
+root@zhangchi-ThinkPad-T450s:~# docker inspect zhangchiwd371/centos_httpd
+[
+    {
+        "Id": "sha256:52d55d6a2d92472dd7e57e5c0cae3815c5e676c1ad321f007698781755c38d32",
+        "RepoTags": [
+            "zhangchiwd371/centos_httpd:latest"
+        ],
+        "RepoDigests": [],
+        "Parent": "sha256:3d6541b04d52d5d3300fa286e6db54144f12f4fb4b0dff3bd3dff967c49a9e8f",
+        "Comment": "",
+        "Created": "2016-11-10T14:50:30.774207025Z",
+        "Container": "17c4fdee15b0d23234fa27c3b9213d1881c2af17fff78638d2966fe80f945407",
+        "ContainerConfig": {
+            "Hostname": "17c4fdee15b0",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": true,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "Tty": true,
+            "OpenStdin": true,
+            "StdinOnce": true,
+            "Env": [],
+            "Cmd": [
+                "/bin/bash"
+            ],
+            "Image": "jlinoff/centos-6.5-x86_64-base",
+            "Volumes": {},
+            "WorkingDir": "",
+            "Entrypoint": null,
+            "OnBuild": null,
+            "Labels": {}
+        },
+        "DockerVersion": "1.12.1",
+        "Author": "",
+        "Config": {
+            "Hostname": "",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [],
+            "Cmd": [
+                "/bin/bash"
+            ],
+            "Image": "",
+            "Volumes": {},
+            "WorkingDir": "",
+            "Entrypoint": null,
+            "OnBuild": null,
+            "Labels": {}
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 247891414,
+        "VirtualSize": 247891414,
+        "GraphDriver": {
+            "Name": "aufs",
+            "Data": null
+        },
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:6409da76fbfaf0112552d11d3f726a5cf576e1f03acc81753baa41270254d513",
+                "sha256:56c1b43489bdba0d9f8a140d0ec52e6d9994dbfd8235d709527807e5a8ade424"
+            ]
+        }
+    }
+]
+查看当前docker的镜像列表，发现刚才创建的镜像已经显示出来了：
+root@zhangchi-ThinkPad-T450s:~# docker images 
+REPOSITORY                       TAG                 IMAGE ID            CREATED             SIZE
+zhangchiwd371/centos_httpd       latest              52d55d6a2d92        7 minutes ago       247.9 MB
+jenkins                          latest              7e7d1b9dc0c8        41 hours ago        714.1 MB
+zhangchiwd371/static_web         latest              46da60b77b45        47 hours ago        228.3 MB
+konstruktoid/ubuntu              latest              42ec6b22c6b8        3 days ago          82.78 MB
+centos                           latest              0584b3d2cf6d        7 days ago          196.5 MB
+ubuntu                           latest              f753707788c5        3 weeks ago         127.2 MB
+kalilinux/kali-linux-docker      latest              b0d9d7dfbd0a        9 weeks ago         1.021 GB
+jlinoff/centos-6.5-x86_64-base   latest              3d6541b04d52        2 years ago         178.3 MB
+---------------------
+docker build
+除了上述的方式docker commit可以将容器导成镜像之外，还可以通过docker build进行操作，不过两者有如下区别：
+（1）docker commit 是往版本控制系统里提交一次变更。使用这种方式制作镜像，本质上是运行一个基础镜像，然后在基础镜像上进行软件安装和修改。最后再将改动提交到版本系统中。 
+（2）使用docker build创建镜像需要编写Dockerfile.这个相当于是自己编写策略，相当于是docker里的脚本，它具有可重复性、透明性。而且构建时是以层级进行构建的。非常方便。
+下面就以Dockerfile的形式来编写构建脚本。
+1.首先创建一个目录来存放配置镜像所需的信息。
+root@zhangchi-ThinkPad-T450s:~# mkdir /centos_vsftpd
+root@zhangchi-ThinkPad-T450s:~# cd /centos_vsftpd/
+首先我们查看下从那个已有的镜像进行拓展：
+root@zhangchi-ThinkPad-T450s:/centos_vsftpd# docker images 
+REPOSITORY                       TAG                 IMAGE ID            CREATED             SIZE
+zhangchiwd371/centos_httpd       latest              52d55d6a2d92        35 minutes ago      247.9 MB
+jenkins                          latest              7e7d1b9dc0c8        41 hours ago        714.1 MB
+zhangchiwd371/static_web         latest              46da60b77b45        47 hours ago        228.3 MB
+konstruktoid/ubuntu              latest              42ec6b22c6b8        3 days ago          82.78 MB
+centos                           latest              0584b3d2cf6d        7 days ago          196.5 MB
+ubuntu                           latest              f753707788c5        3 weeks ago         127.2 MB
+kalilinux/kali-linux-docker      latest              b0d9d7dfbd0a        9 weeks ago         1.021 GB
+jlinoff/centos-6.5-x86_64-base   latest              3d6541b04d52        2 years ago         178.3 MB
+还是选择最后一个centos-6.5，下面编写Dockerfile文件。
+#create the vsftpd serivce images(centos-6.5)
+FROM jlinoff/centos-6.5-x86_64-base
+#install the vsftpd service
+RUN yum install vsftpd -y
+#copy vsftpd.conf to service
+COPY vsftpd.conf /etc/vsftpd/vsftpd.conf
+#touch file say success
+RUN echo "i have been installed the vsftpd service " >> /mnt/show_log
+EXPOSE 21 
+这里有几个需要说明的：
+（1）在Dockerfile中，#开头的被认作是注释； 
+（2）FROM代表这从哪个指定的镜像为基础处理接下来的命令，如果该镜像不在本地，则docker会从dockerhub上进行下载。 
+（3）RUN代表着所需要执行的命令。 
+（4）COPY可以把指定的文件或者目录在创建镜像的时候拷贝到镜像的指定位置。
+接下来执行Dockerfile脚本内容，命令如下所示：
+root@zhangchi-ThinkPad-T450s:/centos_vsftpd# docker build -t="zhangchiwd371/centos_vsftpd" .
+Sending build context to Docker daemon 8.704 kB
+Step 1 : FROM jlinoff/centos-6.5-x86_64-base
+ ---> 3d6541b04d52
+Step 2 : RUN yum install vsftpd -y
+ ---> Using cache
+ ---> fbf104aa61ec
+Step 3 : COPY vsftpd.conf /etc/vsftpd/vsftpd.conf
+ ---> df58035319d4
+Removing intermediate container 47d19892ab2c
+Step 4 : RUN echo "i have been installed the vsftpd service " >> /mnt/show_log
+ ---> Running in 343036ae438d
+ ---> c73a6fc7ae65
+Removing intermediate container 343036ae438d
+Step 5 : EXPOSE 21
+ ---> Running in 632f973833d0
+ ---> 8055ae6f1b21
+Removing intermediate container 632f973833d0
+Successfully built 8055ae6f1b21
+执行完上述脚本之后，我们新的镜像中应该已经安装了vsftpd服务,并且vsftpd.conf配置文件内容也应该是我们设置的，还有在/mnt目录中创建一个show_log文件。
+同时也可以看到docker build的执行是按照步骤分步执行的，这种创建镜像的方式非常的快捷，而且一旦出错可以快速定位有问题的步骤（后续介绍）。
+执行完成后，在镜像列表中可以看到新创建的镜像（第一个）：
+root@zhangchi-ThinkPad-T450s:/centos_vsftpd# docker images 
+REPOSITORY                       TAG                 IMAGE ID            CREATED             SIZE
+zhangchiwd371/centos_vsftpd      latest              8055ae6f1b21        3 minutes ago       228.3 MB
+zhangchiwd371/centos_httpd       latest              52d55d6a2d92        44 minutes ago      247.9 MB
+jenkins                          latest              7e7d1b9dc0c8        41 hours ago        714.1 MB
+zhangchiwd371/static_web         latest              46da60b77b45        2 days ago          228.3 MB
+konstruktoid/ubuntu              latest              42ec6b22c6b8        3 days ago          82.78 MB
+centos                           latest              0584b3d2cf6d        7 days ago          196.5 MB
+ubuntu                           latest              f753707788c5        3 weeks ago         127.2 MB
+kalilinux/kali-linux-docker      latest              b0d9d7dfbd0a        9 weeks ago         1.021 GB
+jlinoff/centos-6.5-x86_64-base   latest              3d6541b04d52        2 years ago         178.3 MB
+以新创建的镜像去安装一个容器：
+root@zhangchi-ThinkPad-T450s:/centos_vsftpd# docker run -i -t --name ttttt zhangchiwd371/centos_vsftpd /bin/bash
+在新的容器中可以看到和我们预测的情况是相同的，vsftpd服务已经安装，目标文件也是存在的。
+
+[root@965196e66d43 /]# yum install vsftpd -y
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirrors.aliyun.com
+ * extras: mirrors.aliyun.com
+ * updates: mirrors.aliyun.com
+base                                                                                                                              | 3.7 kB     00:00     
+extras                                                                                                                            | 3.4 kB     00:00     
+updates                                                                                                                           | 3.4 kB     00:00     
+Setting up Install Process
+Package vsftpd-2.2.2-21.el6.x86_64 already installed and latest version
+Nothing to do
+[root@965196e66d43 /]# 
+[root@965196e66d43 /]# 
+[root@965196e66d43 /]# cd /mnt
+[root@965196e66d43 mnt]# ls
+show_log
+---------------------
+小结
+上述介绍了两种制作镜像的方式，我们在日常工作中更推荐第二章我们编写的大量Dockerfile文件，下节将会介绍Dockerfile的编写规则。 

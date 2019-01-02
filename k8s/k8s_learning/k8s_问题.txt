@@ -1,0 +1,22 @@
+报错：
+Unable to connect to the server: x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
+
+问题解决了，应该是忘记了创建 kubectl kubeconfig 文件导致。
+
+$ export KUBE_APISERVER="https://172.20.0.113:6443"
+$ # 设置集群参数
+$ kubectl config set-cluster kubernetes 
+--certificate-authority=/etc/kubernetes/ssl/ca.pem 
+--embed-certs=true 
+--server=${KUBE_APISERVER}
+$ # 设置客户端认证参数
+$ kubectl config set-credentials admin 
+--client-certificate=/etc/kubernetes/ssl/admin.pem 
+--embed-certs=true 
+--client-key=/etc/kubernetes/ssl/admin-key.pem
+$ # 设置上下文参数
+$ kubectl config set-context kubernetes 
+--cluster=kubernetes 
+--user=admin
+$ # 设置默认上下文
+$ kubectl config use-context kubernetes

@@ -1,0 +1,219 @@
+安装flannel插件
+	安装flannel网络插件
+	如果在各node节点上安装了docker服务，查看网卡信息发现各节点的docker0网卡的ip都是172.17.0.1：
+[root@wecloud-test-k8s-4 ~]# ifconfig 
+docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+        inet 172.17.0.1  netmask 255.255.0.0  broadcast 0.0.0.0
+        ether 02:42:8e:7c:23:ea  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 0  bytes 0 (0.0 B)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.99.196  netmask 255.255.255.0  broadcast 192.168.99.255
+        inet6 fe80::f816:3eff:feb1:afe9  prefixlen 64  scopeid 0x20<link>
+        ether fa:16:3e:b1:af:e9  txqueuelen 1000  (Ethernet)
+        RX packets 10815343  bytes 1108180112 (1.0 GiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 6551758  bytes 933543908 (890.2 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 0  (Local Loopback)
+        RX packets 32212  bytes 1680632 (1.6 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 32212  bytes 1680632 (1.6 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+这引入了一个问题，各node节点之间如何通信，k8s没有直接提供多节点通信的解决方案，所以有flannel,calico,weave等网络解决方案，本文介绍flannel的方式。
+	flannel的官网地址如下：	https://coreos.com/flannel/docs/latest/
+
+部署步骤：
+	如果对于flannel版本没有特殊需求，可以直接在centos7上使用yum安装方式。
+
+[root@wecloud-test-k8s-2 ~]# yum install flannel -y
+1
+flannel的service启动管理文件为/usr/lib/systemd/system/flanneld.service，内容如下：
+[Unit]
+Description=Flanneld overlay address etcd agent
+After=network.target
+After=network-online.target
+Wants=network-online.target
+After=etcd.service
+Before=docker.service
+
+[Service]
+Type=notify
+EnvironmentFile=/etc/sysconfig/flanneld
+EnvironmentFile=-/etc/sysconfig/docker-network
+ExecStart=/usr/bin/flanneld-start \
+  -etcd-endpoints=${FLANNEL_ETCD_ENDPOINTS} \
+  -etcd-prefix=${FLANNEL_ETCD_PREFIX} \
+  $FLANNEL_OPTIONS
+ExecStartPost=/usr/libexec/flannel/mk-docker-opts.sh -k DOCKER_NETWORK_OPTIONS -d /run/flannel/docker
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=docker.service
+该服务管理文件需要配置相关配置文件/etc/sysconfig/flanneld，配置信息如下：
+# Flanneld configuration options  
+
+# etcd url location.  Point this to the server where etcd runs
+FLANNEL_ETCD_ENDPOINTS="https://192.168.99.189:2379,https://192.168.99.185:2379,https://192.168.99.196:2379"
+
+# etcd config key.  This is the configuration key that flannel queries
+# For address range assignment
+FLANNEL_ETCD_PREFIX="/kube-centos/network"
+
+# Any additional options that you want to pass
+FLANNEL_OPTIONS="-etcd-cafile=/etc/kubernetes/ssl/ca.pem -etcd-certfile=/etc/kubernetes/ssl/kubernetes.pem -etcd-keyfile=/etc/kubernetes/ssl/kubernetes-key.pem"
+
+---------------------
+在etcd中创建网络配置
+执行命令为docker分配ip地址段
+[root@wecloud-test-k8s-2 ~]# etcdctl --endpoints=https://192.168.99.189:2379,https://192.168.99.185:2379,https://192.168.99.196:2379 \
+> --ca-file=/etc/kubernetes/ssl/ca.pem \
+> --cert-file=/etc/kubernetes/ssl/kubernetes.pem \
+> --key-file=/etc/kubernetes/ssl/kubernetes-key.pem \
+> mkdir /kube-centos/network
+[root@wecloud-test-k8s-2 ~]# etcdctl --endpoints=https://192.168.99.189:2379,https://192.168.99.185:2379,https://192.168.99.196:2379 \
+> --ca-file=/etc/kubernetes/ssl/ca.pem \
+> --cert-file=/etc/kubernetes/ssl/kubernetes.pem \
+>   --key-file=/etc/kubernetes/ssl/kubernetes-key.pem \
+> mk /kube-centos/network/config '{"Network":"172.30.0.0/16","SubnetLen":24,"Backend":{"Type":"vxlan"}}'
+{"Network":"172.30.0.0/16","SubnetLen":24,"Backend":{"Type":"vxlan"}}
+---------------------
+创建子网地址范围，并且指定网络类型为vxlan，但是flannel使用vxlan方式的性能比较低，所以生产环境建议使用host-gw（替换vxlan即可）
+
+启动flannel服务
+在三个node节点上启动flannel服务，并设置其为开机自启动：
+[root@wecloud-test-k8s-2 ~]# systemctl daemon-reload
+[root@wecloud-test-k8s-2 ~]# systemctl enable flanneld.service 
+Created symlink from /etc/systemd/system/multi-user.target.wants/flanneld.service to /usr/lib/systemd/system/flanneld.service.
+Created symlink from /etc/systemd/system/docker.service.requires/flanneld.service to /usr/lib/systemd/system/flanneld.service.
+[root@wecloud-test-k8s-2 ~]# systemctl start flanneld.service 
+[root@wecloud-test-k8s-2 ~]# systemctl status flanneld.service 
+● flanneld.service - Flanneld overlay address etcd agent
+   Loaded: loaded (/usr/lib/systemd/system/flanneld.service; enabled; vendor preset: disabled)
+   Active: active (running) since 五 2018-04-13 09:48:57 CST; 4s ago
+  Process: 24392 ExecStartPost=/usr/libexec/flannel/mk-docker-opts.sh -k DOCKER_NETWORK_OPTIONS -d /run/flannel/docker (code=exited, status=0/SUCCESS)
+ Main PID: 24378 (flanneld)
+   CGroup: /system.slice/flanneld.service
+           └─24378 /usr/bin/flanneld -etcd-endpoints=https://192.168.99.189:2379,https://192.168.99.185:2379,https://192.168.99.196:2379 ...
+
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld[24378]: warning: ignoring ServerName for user-provided CA for backwards compa...cated
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld-start[24378]: I0413 09:48:56.594025   24378 main.go:132] Installing signal handlers
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld-start[24378]: I0413 09:48:56.594196   24378 manager.go:136] Determining IP ad...rface
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld-start[24378]: I0413 09:48:56.594522   24378 manager.go:149] Using interface w...9.189
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld-start[24378]: I0413 09:48:56.594547   24378 manager.go:166] Defaulting extern....189)
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld-start[24378]: I0413 09:48:56.954118   24378 local_manager.go:179] Picking sub...255.0
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld-start[24378]: I0413 09:48:56.995655   24378 manager.go:250] Lease acquired: 1....0/24
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld-start[24378]: I0413 09:48:56.996165   24378 network.go:58] Watching for L3 misses
+4月 13 09:48:56 wecloud-test-k8s-2.novalocal flanneld-start[24378]: I0413 09:48:56.996192   24378 network.go:66] Watching for new s...eases
+4月 13 09:48:57 wecloud-test-k8s-2.novalocal systemd[1]: Started Flanneld overlay address etcd agent.
+Hint: Some lines were ellipsized, use -l to show in full.
+
+---------------------
+在三个节点上都需要启动flannel服务。
+
+可以看到node节点上都有了相关flannel ip：
+[root@wecloud-test-k8s-2 ~]# ip addr list
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether fa:16:3e:08:db:33 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.99.189/24 brd 192.168.99.255 scope global dynamic eth0
+       valid_lft 76224sec preferred_lft 76224sec
+    inet6 fe80::f816:3eff:fe08:db33/64 scope link 
+       valid_lft forever preferred_lft forever
+3: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN 
+    link/ether 02:42:76:5e:fb:fa brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 scope global docker0
+       valid_lft forever preferred_lft forever
+4: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN 
+    link/ether 36:99:fa:cc:37:60 brd ff:ff:ff:ff:ff:ff
+    inet 172.30.93.0/32 scope global flannel.1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::3499:faff:fecc:3760/64 scope link 
+       valid_lft forever preferred_lft forever
+
+
+[root@wecloud-test-k8s-3 ~]# ip addr list
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether fa:16:3e:7d:65:65 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.99.185/24 brd 192.168.99.255 scope global dynamic eth0
+       valid_lft 62802sec preferred_lft 62802sec
+    inet6 fe80::f816:3eff:fe7d:6565/64 scope link 
+       valid_lft forever preferred_lft forever
+3: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN 
+    link/ether 02:42:0c:11:31:e1 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 scope global docker0
+       valid_lft forever preferred_lft forever
+4: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN 
+    link/ether 3e:14:5e:a1:81:5d brd ff:ff:ff:ff:ff:ff
+    inet 172.30.26.0/32 scope global flannel.1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::3c14:5eff:fea1:815d/64 scope link 
+       valid_lft forever preferred_lft forever
+
+
+[root@wecloud-test-k8s-4 ~]# ip addr list
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether fa:16:3e:b1:af:e9 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.99.196/24 brd 192.168.99.255 scope global dynamic eth0
+       valid_lft 81961sec preferred_lft 81961sec
+    inet6 fe80::f816:3eff:feb1:afe9/64 scope link 
+       valid_lft forever preferred_lft forever
+3: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN 
+    link/ether 02:42:8e:7c:23:ea brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 scope global docker0
+       valid_lft forever preferred_lft forever
+4: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN 
+    link/ether 3e:ec:21:e5:e4:df brd ff:ff:ff:ff:ff:ff
+    inet 172.30.81.0/32 scope global flannel.1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::3cec:21ff:fee5:e4df/64 scope link 
+       valid_lft forever preferred_lft forever
+---------------------
+三个flannel的ip 分别是：172.30.93.0（node1）、172.30.26.0（node2）、172.30.81.0（node3），在172.30.93.0ping其他两个节点测试网络是否互通：
+[root@wecloud-test-k8s-2 ~]# ping 172.30.26.0 
+flannel的信息都会注册到etcd集群里，这个在配置文件中已经声明了,在etcd进行查询：
+[root@wecloud-test-k8s-2 ~]# ETCD_ENDPOINTS="https://192.168.99.189:2379,https://192.168.99.185:2379,https://192.168.99.196:2379"
+[root@wecloud-test-k8s-2 ~]# etcdctl --endpoints=${ETCD_ENDPOINTS} \
+> --ca-file=/etc/kubernetes/ssl/ca.pem \
+>   --cert-file=/etc/kubernetes/ssl/kubernetes.pem \
+>   --key-file=/etc/kubernetes/ssl/kubernetes-key.pem \
+> ls /kube-centos/network/subnets
+/kube-centos/network/subnets/172.30.93.0-24
+/kube-centos/network/subnets/172.30.26.0-24
+/kube-centos/network/subnets/172.30.81.0-24
+[root@wecloud-test-k8s-2 ~]# etcdctl --endpoints=${ETCD_ENDPOINTS} \
+>   --ca-file=/etc/kubernetes/ssl/ca.pem \
+>   --cert-file=/etc/kubernetes/ssl/kubernetes.pem \
+>   --key-file=/etc/kubernetes/ssl/kubernetes-key.pem \
+>   get /kube-centos/network/config
+{"Network":"172.30.0.0/16","SubnetLen":24,"Backend":{"Type":"vxlan"}}
+
+---------------------
+小结
+flannel服务是为了满足k8s各节点之间的网络通信，除此之外k8s还支持其他的网络解决方案（calico、 weave）。网络是容器需要优化的一个大的方面。具体选择那个方案还需要结合实际情况进行测试。 

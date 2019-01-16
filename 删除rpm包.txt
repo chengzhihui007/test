@@ -1,0 +1,27 @@
+linux下删除安装的rpm包
+一。查看mysql安装情况
+rpm -qa | grep -i mysql
+二。停止运行MySQL,删除运行的mysql
+停止运行mysql命令：service mysql stop
+删除命令：rpm -e 文件名
+rpm -e MySQL-server-5.6.25-1.el6.x86_64
+如果提示依赖包错误，可以尝试以下命令删除：
+rpm -e 文件名 --nodeps
+如果提示错误： error: %preun(xxxxx) scriptlet failed,exit status 1
+则用一下命令尝试：
+	rpm -e --noscripts 文件名
+三。查找之前老版本mysql，并且删除老版本mysql的文件和库
+命令： free / -name mysql
+查看结果如下：
+	find / -name mysql
+删除查找到的结果：
+	rm -fr /var/lib/mysql
+	rm -fr /usr/lib64/mysql
+	rm -fr /var/lib/mysql/mysql
+	
+注意：卸载mysql后，配置文件不会删除，所以在这里还要删除配置文件：
+命令：rm -fr /etc/my.cnf
+四。查看查处后结果
+输入命令： rpm -qa | grep -i mysql 
+
+没有查找到文件说明删除成功。

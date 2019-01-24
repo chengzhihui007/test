@@ -1,0 +1,91 @@
+官网地址：https://www.zabbix.com/documentation/4.0/manual/installation/install
+参考地址：https://blog.csdn.net/linux_player_c/article/details/49804123
+源码包下载地址：https://www.zabbix.com/download_sources
+1.解压缩 tar -zxvf zabbix-4.0.0.tar.gz
+2.创建用户，用户组:
+groupadd --system zabbix
+useradd --system -g zabbix -d /usr/lib/zabbix -s /sbin/nologin -c "Zabbix Monitoring System" zabbix
+
+mkdir -m u=rwx,g=rwx,o= -p /usr/lib/zabbix
+chown zabbix:zabbix /usr/lib/zabbix
+
+3.创建数据库
+参考网址：https://www.zabbix.com/documentation/4.0/manual/appendix/install/db_scripts
+修改mysql的配置文件:
+vim /etc/my.cnf
+-------
+default-authentication-plugin=mysql_native_password
+
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+log-error=/var/log/mysqld.log
+pid-file=/var/run/mysqld/mysqld.pid
+-------
+设置mysql自启动，初始化数据：
+
+shell> mysql -uroot -p<password>
+mysql> create database zabbix character set utf8 collate utf8_bin;
+mysql> grant all privileges on zabbix.* to zabbix@localhost identified by '<password>';
+mysql> quit;
+如果是mysql8.0以上版本需要运行下面命令：
+shell> mysql -uroot -p<password>
+mysql> create database zabbix character set utf8 collate utf8_bin;
+mysql> ALTER USER 'zabbix'@'%' IDENTIFIED WITH mysql_native_password BY '1qaz2WSX#';
+mysql> grant all privileges on zabbix.* to 'zabbix'@'%' with grant option;
+mysql> quit;
+shell> cd database/mysql
+shell> mysql -uzabbix -p<password> zabbix < schema.sql
+# stop here if you are creating database for Zabbix proxy
+shell> mysql -uzabbix -p<password> zabbix < images.sql
+shell> mysql -uzabbix -p<password> zabbix < data.sql
+--postgreSQL
+shell> sudo -u postgres createuser --pwprompt zabbix
+shell> sudo -u postgres createdb -O zabbix -E Unicode -T template0 zabbix
+shell> cd database/postgresql
+shell> cat schema.sql | sudo -u zabbix psql zabbix
+# stop here if you are creating database for Zabbix proxy
+shell> cat images.sql | sudo -u zabbix psql zabbix
+shell> cat data.sql | sudo -u zabbix psql zabbix
+vim zabbix_server.conf
+---------
+DBHost=localhost
+DBName=zabbix
+DBUser=zabbix
+DBPassword=zabbix
+DBSocket=/var/lib/mysql/mysql.sock
+----------
+--ORACLE
+sqlplus> select parameter,value from v$nls_parameters where parameter='NLS_CHARACTERSET' or parameter='NLS_NCHAR_CHARACTERSET';
+shell> cd /path/to/zabbix-sources
+shell> ssh user@oracle_host "mkdir /tmp/zabbix_images"
+shell> scp -r misc/images/png_modern user@oracle_host:/tmp/zabbix_images/
+shell> cd /path/to/zabbix-sources/database/oracle
+shell> sqlplus zabbix/password@oracle_host/ORCL
+sqlplus> @schema.sql
+# stop here if you are creating database for Zabbix proxy
+sqlplus> @images.sql
+sqlplus> @data.sql
+shell> ssh user@oracle_host "rm -rf /tmp/zabbix_images"
+--IBM DB2
+shell> db2 "create database zabbix using codeset utf-8 territory us pagesize 32768"
+shell> cd database/ibm_db2
+shell> db2batch -d zabbix -f schema.sql
+# stop here if you are creating database for Zabbix proxy
+shell> db2batch -d zabbix -f images.sql
+shell> db2batch -d zabbix -f data.sql 
+shell> db2set DB2_COMPATIBILITY_VECTOR=3
+--SQLite
+shell> cd database/sqlite3
+shell> sqlite3 /var/lib/sqlite/zabbix.db < schema.sql
+4.配置源代码
+./configure --help
+./configure --enable-server --enable-agent --with-mysql --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2
+To configure the sources for a Zabbix server (with PostgreSQL etc.), you may run:
+./configure --enable-server --with-postgresql --with-net-snmp
+
+To configure the sources for a Zabbix proxy (with SQLite etc.), you may run:
+./configure --prefix=/usr --enable-proxy --with-net-snmp --with-sqlite3 --with-ssh2
+
+To configure the sources for a Zabbix agent, you may run:
+./configure --enable-agent
+

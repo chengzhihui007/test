@@ -101,7 +101,99 @@ minikube config set vm-driver kvm2
 	 )
 	 kubectl get deployments
 	 kubectl proxy
-	 
-	 
+	 curl http://localhost:8001/version
+	 export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+     echo Name of the Pod: $POD_NAME
+     curl http://localhost:8001/api/v1/namespaces/default/pods/$POD_NAME/proxy/
+3.Viewing Pods and Nodes
+	kubectl get pods
+    kubectl describe pods
+    kubectl proxy
+    export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+    echo Name of the Pod: $POD_NAME
+    curl http://localhost:8001/api/v1/namespaces/default/pods/$POD_NAME/proxy/
+	#输出pod中一个容器的日志。（如果pod只包含一个容器则可以省略容器名）
+    kubectl logs $POD_NAME
+	#在容器内部执行命令
+	kubectl exec $POD_NAME env
+	#在容器内部执行命令
+    kubectl exec -ti $POD_NAME bash
+	cat server.js
+	curl localhost:8080
+4.Using a Service to Expose Your App
+  4.1 create a new service 
+	kubectl get pods
+	kubectl get services
+	kubectl expose deployment/kubernetes-bootcamp --type="NodePort" --port 8080
+	export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports0).nodePort}}')
+	export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+	echo NODE_PORT=$NODE_PORT
+	curl $(minikube ip):$NODE_PORT
+  4.2 using labels 
+	kubectl describe deployment
+	kubectl get pods -l run=kubernetes-bootcamp 
+	kubectl get services -l run=kubernetes-bootcamp
+	export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+	echo Name of the Pod: $POD_NAME
+	kubectl label pod $POD_NAME app=v1
+	kubectl describe pods $POD_NAME
+	kubectl get pods -l app=v1
+  4.3 deleting a service
+	#删除一个资源（可以是pod、instance等）
+	kubectl delete service -l run=kubernetes-bootcamp
+	kubectl get services
+	curl $(minikube ip):$NODE_PORT
+	#在容器内部执行命令
+	kubectl exec -ti $POD_NAME curl localhost:8080
+5.Running Multiple Instances of Your App
+  5.1 scaling a deployment
+	kubectl get deployments
+	kubectl scale deployments/kubernetes-bootcamp --replicas=4
+	kubectl get deployments
+	kubectl get pods -o wide
+	kubectl describe deployments/kubernetes-bootcamp
+  5.2 load balancing
+	kubectl describe services/kubernetes-bootcamp
+	export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+	curl $(minikube ip):$NODE_PORT
+  5.3 scale down 
+	kubectl scale deployments/kubernetes-bootcamp --replicas=2
+	kubectl get deployments
+	kubectl get pods -o wide
+6.Performing a Rolling Update
+  6.1 update the version of the app
+	kubectl get deployments
+	kubectl get pods
+	kubectl describe pods
+	kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=jocatalin/kubernetes-bootcamp:v2
+	kubectl get pods
+  6.2 verify an update 
+	kubectl describe services/kubernetes-bootcamp
+	export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+	echo NODE_PORT=$NODE_PORT
+	curl $(minikube ip):$NODE_PORT
+	#查看deployment的状态
+	kubectl rollout status deployments/kubernetes-bootcamp
+	kubectl describe pods
+  6.3  rooback an update 
+	kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=gcr.io/google-scamples/kubernetes-bootcamp:v10
+	kubectl get deployments
+	kubectl get pods
+	kubectl describe pods
+	#回滚到之前的deployment
+	kubectl rollout undo deployments/kubernetes-bootcamp
+	kubectl get pods
+	kubectl describe pods
+ 
+
+
+  
+  
+  
+  
+  
+
+
+
 
 

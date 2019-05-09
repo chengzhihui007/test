@@ -54,6 +54,7 @@ sudo systemctl start libvirtd.service
 sudo systemctl status libvirtd.service
 sudo usermod -a -G libvirt $(whoami)
 newgrp libvirt 
+curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2 && chmod +x docker-machine-driver-kvm2 && sudo mv docker-machine-driver-kvm2 /usr/local/bin/
 3.配置kubectl
 wget https://storage.googleapis.com/kubernetes-release/release/v1.14.0/bin/linux/amd64/kubectl
 chmod +x ./kubectl

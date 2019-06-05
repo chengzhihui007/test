@@ -1,4 +1,4 @@
-cd  /etc/yum.repods.d
+cd  /etc/yum.repos.d
 mv CentOS-Base.repo CentOS-Base.repo.bak
 wget http://mirrors.aliyun.com/repo/Centos-7.repo
 mv Centos-7.repo CentOS-Base.repo

@@ -1,0 +1,19 @@
+https://www.cnblogs.com/josn1984/p/8550419.html
+1.关闭服务
+net start
+net stop MySQL57
+2.跳过权限启动MySQL
+mysqld --skip-grant-tables
+
+这时，用管理员身份另起一个命令提示符窗口，输入：
+mysql -uroot -p
+
+3.修改密码
+show databases;
+use mysql;
+UPDATE user SET Password=PASSWORD('123456') where USER='root';
+FLUSH PRIVILEGES;
+quit
+
+4.重新登录
+mysql -uroot -p

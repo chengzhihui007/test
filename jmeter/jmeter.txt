@@ -1,0 +1,49 @@
+jmeter 下载地址： https://jmeter.apache.org/download_jmeter.cgi
+tar -zxvf  apache-jmeter-5.2.tgz 
+mv apache-jmeter-5.2  /usr/jmeter
+配置环境变量
+vim /etc/profile
+export JMETER=/usr/jmeter/apache-jmeter-5.2
+export CLASSPATH=$JMETER/lib/ext/ApacheJMeter_core.jar:$JMETER/lib/jorphan.jar:$JMETER/lib/logkit-2.0.jar:$CLASSPATH
+
+export PATH=$JMETER/bin/:$PATH
+
+source /etc/profile 
+
+测试： jmeter -v
+
+------------------------------------------
+安装 influxdata
+wget et https://dl.influxdata.com/influxdb/releases/influxdb-1.7.7.x86_64.rpm
+sudo yum localinstall influxdb-1.7.7.x86_64.rpm
+vim /etc/influxdb/influxdb.conf    #进入influxdb配置文件，ubuntu默认配置文件地址
+[[graphite]]
+  # Determines whether the graphite endpoint is enabled.
+    enabled = true
+    database = "jmeter"
+    retention-policy = ""
+    bind-address = ":2003"
+    protocol = "tcp"
+    consistency-level = "one"
+
+启动InfluxDB  influxd -config /etc/influxdb/influxdb.conf
+ 也许会报错，可以执行下面的命令/bin/systemctl start influxdb.service
+ 
+启动influx，创建数据库和用户
+influx
+> create database jmeter
+> show databases
+> use jmeter #切换数据库 Using database jmeter 
+> CREATE USER "admin" WITH PASSWORD 'admin' WITH ALL PRIVILEGES # 创建管理员权限的用户
+------------------------------------------------
+安装配置Grafana
+官网地址：  https://grafana.com/grafana/download
+wget https://dl.grafana.com/oss/release/grafana-6.4.4-1.x86_64.rpm 
+sudo yum localinstall grafana-6.4.4-1.x86_64.rpm 
+
+启动并访问 service grafana-server start 
+使用浏览器打开 http://IP:3000/login，访问Grafana主页，账号密码默认是admin
+添加之前配置好的influxdata数据库
+之后添加模板：
+https://grafana.com/grafana/dashboards/5496
+

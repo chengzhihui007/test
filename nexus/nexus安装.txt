@@ -69,6 +69,15 @@ ps：如果远程连接不上，可能是防火墙端口的问题,nexus默认端
  firewall-cmd --zone=public --add-port=80/tcp --permanent 
 -------------
 登录账户密码： /home/nexus/sonatype-work/nexus3/admin.password
+
+上面在启动过程中出现告警：不推荐使用root用户启动。这个告警不影响nexus的正常访问和使用。
+去掉上面WARNING的办法：
+[root@master-node src]# vim /etc/profile
+......
+export RUN_AS_USER=root
+[root@master-node src]# source /etc/profile
+[root@master-node src]# lsof -i:8081            //nexus服务启动成功后，需要稍等一段时间，8081端口才起来
+
 Nexus说明
 1.component name的一些说明： 
     1）maven-central：maven中央库，默认从https://repo1.maven.org/maven2/拉取jar 

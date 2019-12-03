@@ -61,3 +61,5 @@ Nexus说明
 7.当遇到奇怪问题时，重启nexus，重启后web界面要1分钟左右后才能访问。
 8.Nexus的工作目录是sonatype-work（路径一般在nexus同级目录下）
 
+参考网址：https://www.cnblogs.com/kevingrace/p/6201984.html
+

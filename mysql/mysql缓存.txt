@@ -1,0 +1,28 @@
+可以通过下面的SQL查看当前查询缓存相关参数状态：
+ 
+SHOW VARIABLES LIKE '%query_cache%';
+
+Variable_name    | value
+have_query_cache  |	YES
+query_cache_limit	|1048576
+query_cache_min_res_unit	|4096
+query_cache_size	|1073741824
+query_cache_type |	OFF
+query_cache_wlock_invalidate|	OFF
+说明：
+  query_cache_type 
+  1或on开启缓存，但是不保存使用sql_no_cache的select语句,如不缓存select  sql_no_cache name from wei where id=2 
+2或demand开启有条件缓存，只缓存带sql_cache的select语句，缓存select  sql_cache name from wei where id=4 
+
+    查询缓存类型，有0、1、2三个取值。0则不使用查询缓存。1表示始终使用查询缓存。2表示按需使用查询缓存。 
+    ☆如果query_cache_type为1而又不想利用查询缓存中的数据，可以用下面的SQL： 
+    SELECT SQL_NO_CACHE * FROM my_table WHERE condition;
+    ☆如果值为2，要使用缓存的话，需要使用SQL_CACHE开关参数：
+    SELECT SQL_CACHE * FROM my_table WHERE condition;
+    
+    可以用如下命令查看是否开启，其中have_query_cache为是否开启，
+    query_cache_limit 指定单个查询能够使用的缓冲区大小，缺省为1M；
+    query_cache_min_res_unit为系统分配的最小缓存块大小，默认是4KB，
+    设置值大对大数据查询有好处，但如果你的查询都是小数据 查询，就容易造成内存碎片和浪费；
+    query_cache_size和query_cache_type就是上面我们的配置；query_cache_wlock_invalidate表示当有其他客户端正在对MyISAM表进行写操作时，
+    如果查询在query cache中，是否返回cache结果还是等写操作完成再读表获取结果。

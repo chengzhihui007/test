@@ -26,3 +26,5 @@ query_cache_wlock_invalidate|	OFF
     设置值大对大数据查询有好处，但如果你的查询都是小数据 查询，就容易造成内存碎片和浪费；
     query_cache_size和query_cache_type就是上面我们的配置；query_cache_wlock_invalidate表示当有其他客户端正在对MyISAM表进行写操作时，
     如果查询在query cache中，是否返回cache结果还是等写操作完成再读表获取结果。
+关闭：ALTER TABLE `test` DISABLE KEYS ;
+开启：ALTER TABLE `test` ENABLE KEYS;

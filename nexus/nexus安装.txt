@@ -1,7 +1,9 @@
 参考网址:
 https://blog.csdn.net/li_jiazhi/article/details/90264936
 https://blog.csdn.net/xxyybs/article/details/103080132
-
+nexus参考网址：
+https://www.cnblogs.com/kevingrace/p/6201984.html
+https://blog.csdn.net/wanghuan1191/article/details/79104303
 
 Maven的安装
 下载地址：http://maven.apache.org/download.cgi
@@ -106,4 +108,12 @@ Nexus说明
 7.当遇到奇怪问题时，重启nexus，重启后web界面要1分钟左右后才能访问。
 8.Nexus的工作目录是sonatype-work（路径一般在nexus同级目录下）
 
-参考网址：https://www.cnblogs.com/kevingrace/p/6201984.html
+
+
+Nexus的调度任务
+
+默认安装好之后是没有索引和jar文件的，因为你要自己定义任务去执行。
+
+Nexus提供了一系列可配置的调度任务来方便用户管理系统。用户可以设定这些任务运行的方式，例如每天、每周等。调度任务会在适当的时候在后台运行。
+
+要建立一个调度任务，单击左边导航菜单中的Tasks，点击Create Task，然后选择一个任务类型。  

@@ -1,0 +1,5 @@
+参考网址：
+https://blog.csdn.net/yjclsx/article/details/84027055
+1、上传
+在maven根目录的conf下的settings.xml配置文件中加入server节点（需确保idea中的maven配置指向了这个settings.xml）
+1.2、配置pom.xml

@@ -68,7 +68,3 @@ setting.xml中server信息（即nexus的可以上传jar的用户信息）修改�
 解决方案：
 将root的setting.xml文件复制到jenkins用户（或者脚本拥有者）的.m2目录下一份并且设置所属用户为对应用户即可。
 
- SNAPSHOT去掉时间戳
-找到你nexus的配置文件
-把其中的unique改为non-unique，如下
-<snapshotVersionBehavior>non-unique</snapshotVersionBehavior> 

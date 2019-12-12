@@ -1,0 +1,5 @@
+官网：https://jenkins.io/ 官方文档：https://jenkins.io/doc/
+运行环境：先安装docker，java8
+验证是否安装: docker -v , java -version
+下载 jenkins.war  
+    wget http://ftp-nyc.osuosl.org/pub/jenkins/war-stable/2.190.3/jenkins.war

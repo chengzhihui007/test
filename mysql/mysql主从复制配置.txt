@@ -1,0 +1,46 @@
+参考网址：https://blog.51cto.com/13910274/2172910
+
+备份主库
+备份主库时需要另开一个终端，给数据库上读锁，避免在备份期间有其他人在写入导致数据同步的不一致
+flush tables with read lock;
+备份主库并将备份文件传送到从库
+mysqldump -uroot -p123456 --all-databases > /opt/all-20180907.sql
+scp /opt/all-20180907.sql root@192.168.55.129:/opt/
+解除主库的锁表状态，直接退出交互式界面即可
+quit
+在从库上恢复主库的备份并查看是否与主库的数据保持一致
+mysql -uroot -p123456 < /opt/all-20180907.sql
+在主数据库创建一个同步账户授权给从数据使用
+create user 'repl'@'192.168.55.129' identified by '123456';
+grant replication slave on *.* to 'repl'@'192.168.55.129';
+flush privileges;
+配置主数据库编辑配置文件
+vim /etc/my.cnf
+//添加以下内容
+log-bin=mysql-bin //启用binlog日志
+server-id=1 //主数据库服务器唯一标识符 主的必须必从大
+log-error=/opt/data/mysql.log
+重启mysql服务
+ss -antl //查看端口
+查看主库的状态
+show master status;
+
+配置从数据库
+vim /etc/my.cnf
+//添加以下内容：
+server-id=2 //设置从库的唯一标识符 从的必须比主小
+relay-log=mysql-relay-bin //启用中继日志relay log
+error-log=/opt/data/mysql.log
+重启从库的mysql服务
+配置并启动主从复制
+mysql> change master to
+    -> master_host='192.168.55.130',
+    -> master_user='repl',
+    -> master_password='123456',
+    -> master_log_file='mysql-bin.000001',
+    -> master_log_pos=154;
+ slave start
+ 查看从服务器状态   
+ show slave status\G;
+
+    

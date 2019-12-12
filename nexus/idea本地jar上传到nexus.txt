@@ -1,0 +1,70 @@
+参考网址：
+https://blog.csdn.net/yjclsx/article/details/84027055
+1、上传
+在maven根目录的conf下的settings.xml配置文件中加入server节点（需确保idea中的maven配置指向了这个settings.xml）
+<server>
+  <id>dev</id>
+  <username>admin</username>
+  <password>admin123</password>
+</server>
+<!--snapshots配置-->
+ <server>
+        <id>snapshots</id>
+        <username>admin</username>
+        <password>admin</password>
+    </server>
+1.2、配置pom.xml
+参考"上传pom.xml"
+
+<distributionManagement>
+    <!-- 用于上传的仓库 -->
+    <repository>
+        <!-- 这里的id需要和settings.xml中的server的id一致 -->
+        <id>dev</id>
+        <name>nexus-third</name>
+        <!-- third是一个hosted类型的仓库，用于存放第三方或自己的jar包 -->
+        <url>http://192.168.124.132:8081/repository/third/</url>
+    </repository>
+     <snapshotRepository>
+            <id>snapshots</id>
+            <name>Snapshot</name>
+            <url>http://192.168.124.132:8081/repository/maven-snapshots/</url>
+        </snapshotRepository>
+</distributionManagement>
+ 
+<build>
+    <plugins>
+        <!-- 要将源码放上去，需要加入这个插件 -->
+        <plugin>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>2.4</version>
+            <configuration>
+                <attach>true</attach>
+            </configuration>
+            <executions>
+                <execution>
+                    <phase>compile</phase>
+                    <goals>
+                        <goal>jar</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+</build>
+其中url 是nexus的私有库(提前在nexus中建立私有库,name:third,format:maven2,type:hosted,url同上 )
+1.3、在idea中上传jar
+在idea中运行mvn deploy
+ps: 出现“Return code is: 400 , ReasonPhrase:Repository version policy: RELEASE does not allow metadata in pat”，
+  1、检查上传的目标maven仓库配置
+  Deployment Policy设置为Allow Redeploy而不是Disable Redeploy。
+  2、检查当前发布的版本号命名
+  版本号不可以SNAPSHOT结尾 
+  出现Return code is: 401, ReasonPhrase: Unauthorized的两种情况，
+  1.maven的setting.xml中没有配置server信息或者server的信息与服务器信息不正确
+解决方案：
+setting.xml中server信息（即nexus的可以上传jar的用户信息）修改正确，并且保证server的id与构建项目的pom.xml中的repository的id一致。
+2.Linux的jenkins用户（或者执行脚本的用户）下没有配置setting.xml配置文件
+解决方案：
+将root的setting.xml文件复制到jenkins用户（或者脚本拥有者）的.m2目录下一份并且设置所属用户为对应用户即可。
+

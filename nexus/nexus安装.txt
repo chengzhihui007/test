@@ -1,6 +1,42 @@
 参考网址:
 https://blog.csdn.net/li_jiazhi/article/details/90264936
 https://blog.csdn.net/xxyybs/article/details/103080132
+nexus参考网址：
+https://www.cnblogs.com/kevingrace/p/6201984.html
+https://blog.csdn.net/wanghuan1191/article/details/79104303
+
+Maven的安装
+下载地址：http://maven.apache.org/download.cgi
+提前在服务器上安装jdk环境（参考：Centos中yum方式安装java）
+[root@master-node ~]# cd /usr/local/src/
+[root@master-node src]# wget http://mirrors.hust.edu.cn/apache/maven/maven-3/3.3.9/binaries/apache-maven-3.3.9-bin.tar.gz
+[root@master-node src]# tar -zvxf apache-maven-3.3.9-bin.tar.gz 
+[root@master-node src]# mv apache-maven-3.3.9 /usr/local/maven
+
+接着配置系统环境变量，在/etc/profile文件底部添加如下内容：
+[root@master-node src]# java -version
+openjdk version "1.8.0_111"
+OpenJDK Runtime Environment (build 1.8.0_111-b15)
+OpenJDK 64-Bit Server VM (build 25.111-b15, mixed mode)
+[root@master-node src]# vim /etc/profile
+.....
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk                                //java的环境变量设置
+export CLASSPATH=.:$JAVA_HOME/jre/lib/rt.jar:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+export PATH=$PATH:$JAVA_HOME/bin
+
+export MAVEN_HOME=/usr/local/maven                                                 //maven的环境变量设置
+export PATH=$PATH:$MAVEN_HOME/bin
+[root@master-node src]# source /etc/profile
+
+最后验证是否安装成功，出现如下信息，说明安装成功
+[root@master-node src]# mvn --version                   # 最好按照java jdk
+Apache Maven 3.3.9 (bb52d8502b132ec0a5a3f4c09453c07478323dc5; 2015-11-11T00:41:47+08:00)
+Maven home: /usr/local/maven
+Java version: 1.8.0_111, vendor: Oracle Corporation
+Java home: /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.111-2.b15.el7_3.x86_64/jre
+Default locale: en_US, platform encoding: UTF-8
+OS name: "linux", version: "3.10.0-327.el7.x86_64", arch: "amd64", family: "unix"
+
 
 vim /etc/profile
 export JAVA_HOME=/usr/local/src/jdk/jdk1.8
@@ -32,8 +68,52 @@ nexus-3.19.1-01 ： 应用程序自目录
 ./nexus start
 ps：如果远程连接不上，可能是防火墙端口的问题,nexus默认端口
 开启80端口
- firewall-cmd --zone=public --add-port=80/tcp --permanent
-
+ firewall-cmd --zone=public --add-port=80/tcp --permanent 
 -------------
 登录账户密码： /home/nexus/sonatype-work/nexus3/admin.password
 
+上面在启动过程中出现告警：不推荐使用root用户启动。这个告警不影响nexus的正常访问和使用。
+去掉上面WARNING的办法：
+[root@master-node src]# vim /etc/profile
+......
+export RUN_AS_USER=root
+[root@master-node src]# source /etc/profile
+[root@master-node src]# lsof -i:8081            //nexus服务启动成功后，需要稍等一段时间，8081端口才起来
+
+Nexus说明
+1.component name的一些说明： 
+    1）maven-central：maven中央库，默认从https://repo1.maven.org/maven2/拉取jar 
+    2）maven-releases：私库发行版jar,初次安装将deployment policy 设置为allow redeploy
+    3）maven-snapshots：私库快照（调试版本）jar 
+    4）maven-public：仓库分组，把上面三个仓库组合在一起对外提供服务，在本地maven基础配置settings.xml中使用。
+2.Nexus默认的仓库类型有以下四种：
+    1）group(仓库组类型)：又叫组仓库，用于方便开发人员自己设定的仓库；
+    2）hosted(宿主类型)：内部项目的发布仓库（内部开发人员，发布上去存放的仓库）；
+    3）proxy(代理类型)：从远程中央仓库中寻找数据的仓库（可以点击对应的仓库的Configuration页签下Remote Storage Location属性的值即被代理的远程仓库的路径）；
+    4）virtual(虚拟类型)：虚拟仓库（这个基本用不到，重点关注上面三个仓库的使用）；
+3.Policy(策略):表示该仓库为发布(Release)版本仓库还是快照(Snapshot)版本仓库；
+  由于访问中央仓库有时候会比较慢，这里我添加一个阿里云的代理仓库，然后优先级放到默认中央库之前,， 阿里云的maven仓库url为http://maven.aliyun.com/nexus/content/groups/public
+  maven2(proxy)-->public组里面讲这个aliyun-proxy仓库加入，排在maven-central之前即可。
+4.Public Repositories下的仓库 
+   1）3rd party: 无法从公共仓库获得的第三方发布版本的构件仓库，即第三方依赖的仓库，这个数据通常是由内部人员自行下载之后发布上去；
+   2）Apache Snapshots: 用了代理ApacheMaven仓库快照版本的构件仓库 
+   3）Central: 用来代理maven中央仓库中发布版本构件的仓库 
+   4）Central M1 shadow: 用于提供中央仓库中M1格式的发布版本的构件镜像仓库 
+   5）Codehaus Snapshots: 用来代理CodehausMaven 仓库的快照版本构件的仓库 
+   6）Releases: 内部的模块中release模块的发布仓库，用来部署管理内部的发布版本构件的宿主类型仓库；release是发布版本；
+   7）Snapshots:发布内部的SNAPSHOT模块的仓库，用来部署管理内部的快照版本构件的宿主类型仓库；snapshots是快照版本，也就是不稳定版本
+所以自定义构建的仓库组代理仓库的顺序为：Releases，Snapshots，3rd party，Central。也可以使用oschina放到Central前面，下载包会更快。
+5.Nexus默认的端口是8081，可以在etc/nexus-default.properties配置中修改。
+6.Nexus默认的用户名密码是admin/admin123
+7.当遇到奇怪问题时，重启nexus，重启后web界面要1分钟左右后才能访问。
+8.Nexus的工作目录是sonatype-work（路径一般在nexus同级目录下）
+
+
+
+Nexus的调度任务
+
+默认安装好之后是没有索引和jar文件的，因为你要自己定义任务去执行。
+
+Nexus提供了一系列可配置的调度任务来方便用户管理系统。用户可以设定这些任务运行的方式，例如每天、每周等。调度任务会在适当的时候在后台运行。
+
+要建立一个调度任务，单击左边导航菜单中的Tasks，点击Create Task，然后选择一个任务类型。  

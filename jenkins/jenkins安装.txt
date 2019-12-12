@@ -6,3 +6,4 @@
 运行jenkins 
     java -jar jenkins.war --httpPort=8080
     按照说明完成安装。
+ps: 插件 出现Time Out时，更新插件代理地址：https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json (清华镜像)

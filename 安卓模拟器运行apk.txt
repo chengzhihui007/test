@@ -1,0 +1,25 @@
+参考网址：http://www.downcc.com/soft/314205.html
+
+1.要在电脑上运行首先要安装一个安卓模拟器：
+
+http://www.downcc.com/soft/22741.html
+
+注意：xp用户需先安装Windows Installer 4.5和.net framework 2.0 SP2，否则会提示出错。
+
+Windows Installer 4.5 官方简体中文版：http://www.downcc.com/soft/23608.html
+
+Microsoft .net framework 2.0 SP2 官方安装版：http://www.downcc.com/soft/11395.html
+
+2.下载完整的apk文件，右击apk图标，选择打开方式--BlueStacks APK handler安装
+
+安装完毕后，模拟器界面就会出现电脑版的百词斩词典图标。
+
+3.完美运行
+
+此时点击BlueStacks右下角的扳手图标，选择更改程序的大小
+
+然后找到安装包，选中Tablet，点击下面的"Done"按钮。
+
+然后返回主界面，点击图标，就可以运行apk文件了
+
+BlueStacks 模拟器安装教程：http://www.downcc.com/tech/5301.html

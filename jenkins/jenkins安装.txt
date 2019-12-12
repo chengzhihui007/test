@@ -3,3 +3,6 @@
 验证是否安装: docker -v , java -version
 下载 jenkins.war  
     wget http://ftp-nyc.osuosl.org/pub/jenkins/war-stable/2.190.3/jenkins.war
+运行jenkins 
+    java -jar jenkins.war --httpPort=8080
+    按照说明完成安装。

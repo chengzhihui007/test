@@ -1,0 +1,2 @@
+参考网址：https://www.jianshu.com/p/46413060c88e 
+压测命令：redis-benchmark -h 127.0.0.1 -p 6379 -c 50 -n 10000

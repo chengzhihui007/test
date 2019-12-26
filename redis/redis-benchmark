@@ -1,2 +1,19 @@
 参考网址：https://www.jianshu.com/p/46413060c88e 
+        https://mp.weixin.qq.com/s/Oz8yOcD54B6Pr3pCm9KnQg
 压测命令：redis-benchmark -h 127.0.0.1 -p 6379 -c 50 -n 10000
+1.长连接
+ ./redis-benchmark -h host -p port -t ping -c 10000 -n 500000 -k 1 -q（k=1表示使用长连接，k=0表示使用短连接)
+ ps: Can't create socket: Too many open files
+解决方案： ulimit -n 65535
+非root: /etc/security/limits.conf 
+  *       soft    noproc 65535
+  *       hard    noproc 65535
+  *       soft    nofile 65535
+  *       hard    nofile 65535
+  只压测某个命令 ：
+  redis-benchmark -h 127.0.0.1 -p 6086 -c 50 -n 10000 -t get
+ 只测试某些操作的性能。
+redis-benchmark -n 100000 -q script load "redis.call(‘set’,’foo’,’bar’)"
+
+
+  

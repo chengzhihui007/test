@@ -1,0 +1,14 @@
+配置免密登录
+3.1 生成密匙
+在每台主机上使用 ssh-keygen 命令生成公钥私钥对：
+
+ssh-keygen
+3.2 免密登录
+将 hadoop001 的公钥写到本机和远程机器的 ~/ .ssh/authorized_key 文件中：
+
+ssh-copy-id -i ~/.ssh/id_rsa.pub hadoop001
+ssh-copy-id -i ~/.ssh/id_rsa.pub hadoop002
+ssh-copy-id -i ~/.ssh/id_rsa.pub hadoop003
+3.3 验证免密登录
+ssh hadoop002
+ssh hadoop003

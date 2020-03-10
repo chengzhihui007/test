@@ -1,0 +1,87 @@
+参考网址： https://blog.csdn.net/qq_36918149/article/details/92381446
+
+一、安装
+1、环境
+系统：CentOS 7 64位
+安装方式：使用.rpm包（yum）
+注意：mongodb奇数次要版本（例如3.5）是开发版本，不适合生产使用
+2、配置包管理系统（yum）
+1）创建仓库文件
+
+vi /etc/yum.repos.d/mongodb-org-3.4.repo
+ 
+2）然后复制下面配置,保存退出
+
+[mongodb-org-3.4]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.4/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://www.mongodb.org/static/pgp/server-3.4.asc
+ 
+2、yum安装
+
+yum install -y mongodb-org
+ 
+3、修改配置文件，解除ip地址绑定信息
+
+vi /etc/mongod.conf
+1
+注意：修改配置文件的 bind_ip, 默认是 127.0.0.1 只限于本机连接。所以安装完成后必须把这个修改为 0.0.0.0 ,否则通过别的机器是没法连接的!
+
+4、启动、停止、重启
+MongoDB默认将数据文件存储在/var/lib/mongo目录，默认日志文件在/var/log/mongodb中。如果要修改,可以在 /etc/mongod.conf 配置中指定备用日志和数据文件目录。
+1）启动命令:
+
+service mongod start
+2）停止命令:
+
+service mongod stop
+ 
+3）重启命令:
+
+service mongod restart
+ 
+4）查看mongoDB是否启动成功:
+可以通过查看日志文件
+
+cat /var/log/mongodb/mongod.log
+ 
+日志文件应该会出现如下一句说明
+
+[initandlisten] waiting for connections on port 
+注意： 是mongodb运行端口
+
+也可以通过下面命令检查是否启动成功
+
+chkconfig mongod on
+ 
+二、使用
+[root@instance-d0nk2r2c ~]# mongo
+ 
+## 查看数据库
+> show dbs;
+ 
+## 查看数据库版本
+> db.version();
+ 
+## 常用命令帮助
+> db.help();
+ 
+## 如果数据库不存在，则自动创建
+> use  springbucks
+##  创建账户，并授权读写
+> db.createUser({user:"springbucks",pwd:"root123456",roles:[{"role":"readWrite","db":"springbucks"}]});
+## 链接信息如下：
+mongodb://springbucks:root123456@192.168.2.18:27017/springbucks
+ 
+三、卸载
+1 、卸载移除mongo
+
+yum erase $(rpm -qa | grep mongodb-org)
+ 
+2、移除数据库文件和日志文件
+
+rm -r /var/log/mongodb
+rm -r /var/lib/mongo 
+官方安装说明：https://docs.mongodb.com/master/tutorial/install-mongodb-on-red-hat/ 

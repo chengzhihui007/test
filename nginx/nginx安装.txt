@@ -1,0 +1,40 @@
+参考网址：
+https://www.dalaoyang.cn/article/55
+
+安装环境
+
+yum -y install gcc pcre-devel zlib-devel openssl openssl-devel
+
+在usr/local目录下新建nginx文件夹
+
+cd /usr/local
+mkdir nginx
+进入nginx文件夹
+
+cd nginx
+下载nginx的tar包
+
+wget https://nginx.org/download/nginx-1.9.9.tar.gz
+解压tar
+
+tar -xvf nginx-1.13.7.tar.g
+安装nginx
+
+mkdir logs
+chmod 700 logs
+
+./configure
+
+make
+
+make install
+
+cd sbin
+
+启动
+sudo ./nginx
+
+
+查询nginx.conf是否正确
+
+/usr/local/nginx/sbin/nginx -t

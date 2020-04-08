@@ -1,0 +1,9 @@
+参考网址：https://blog.csdn.net/qq_42114918/article/details/81840335
+
+systemctl daemon-reload
+
+systemctl restart docker.service
+
+将springboot 项目打包 成docker镜像
+参考网址：https://blog.csdn.net/keepd/article/details/80569797
+

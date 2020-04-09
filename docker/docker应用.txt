@@ -49,6 +49,33 @@ docker run -d -p 8888:8080 yanger
 
 
 
+-------------------------------
+编写dockerfile
+
+FROM centos:7
+
+ADD jdk-11.0.3_linux-x64_bin.tar.gz /opt
+
+ENV JAVA_HOME=/opt/jdk-11.0.3
+ENV PATH=$JAVA_HOME/bin:$PATH
+ENV CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ENV export LC_ALL=zh_CN.UTF-8
+
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' > /etc/timezone
+
+
+构建镜像
+docker build -t qy9527/jdk11 .
+
+push镜像
+# 未登录需先登录
+docker login
+
+docker push qy9527/jdk11:latest
+
+进入容器命令
+docker exec -it [containerId] /bin/bash
+
 
 
 

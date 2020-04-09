@@ -1,0 +1,125 @@
+参考网址: https://www.cnblogs.com/dingjiaoyang/p/5102827.html
+
+先查看 rpm -qa | grep java
+
+显示如下信息：
+java-1.4.2-gcj-compat-1.4.2.0-40jpp.115
+java-1.6.0-openjdk-1.6.0.0-1.7.b09.el5
+
+卸载：
+rpm -e --nodeps java-1.4.2-gcj-compat-1.4.2.0-40jpp.115
+rpm -e --nodeps java-1.6.0-openjdk-1.6.0.0-1.7.b09.el5
+
+还有一些其他的命令
+rpm -qa | grep gcj
+rpm -qa | grep jdk
+
+如果出现找不到openjdk source的话，那么还可以这样卸载
+ yum -y remove java java-1.4.2-gcj-compat-1.4.2.0-40jpp.115
+ yum -y remove java java-1.6.0-openjdk-1.6.0.0-1.7.b09.el5
+ 
+ 还可以
+
+一、查看Jdk的安装路径：
+
+ 
+
+whereis java
+which java （java执行路径）
+echo $JAVA_HOME
+
+echo $PATH
+
+ 
+
+备注：如果是windows中，可以使用:
+
+set java_home:查看JDK安装路径
+java -version:查看JDK版本
+
+ 
+
+二、卸载旧版本的JDK：
+
+ 
+
+1. 确定JDK的版本：
+
+rpm -qa | grep jdk
+
+rpm -qa | grep gcj
+
+可能的结果是：
+
+libgcj-4.1.2-42.el5 
+java-1.4.2-gcj-compat-1.4.2.0-40jpp.115 
+
+ 
+
+2.然后卸载：
+
+ yum -y remove java-1.4.2-gcj-compat-1.4.2.0-40jpp.115
+
+如果这中方法不行，可以使用如下的方法卸载：
+
+ 
+
+1）卸载系统自带的jdk版本： 
+   查看自带的jdk： 
+   #rpm -qa|grep gcj 
+   可能看到如下类似的信息： 
+   libgcj-4.1.2-44.el5 
+   java-1.4.2-gcj-compat-1.4.2.0-40jpp.115 
+   使用rpm -e --nodeps 命令删除上面查找的内容： 
+   #rpm -e –nodeps java-1.4.2-gcj-compat-1.4.2.0-40jpp.115 
+
+2）卸载rpm安装的jkd版本 
+   查看安装的jdk： 
+   #rpm -qa|grep jdk 
+   可能看到如下类似的信息： 
+   jdk-1.6.0_22-fcs 
+   卸载： 
+   #rpm -e --nodeps jdk-1.6.0_22-fcs   
+
+ 
+
+3）找到jdk安装目录的_uninst子目录
+
+·在shell终端执行命令./uninstall.sh即可卸载jdk
+
+---------------------------
+三、下载新版本的JDK
+
+官方地址： http://www.oracle.com/technetwork/java/javase/downloads/index.htm
+wget https://download.oracle.com/otn/java/jdk/11.0.6+8/90eb79fb590d45c8971362673c5ab495/jdk-11.0.6_linux-x64_bin.tar.gz?AuthParam=1586415430_be67965ce9c5b35a8effed500e474a71
+
+
+怎样安装tar类型的JDK：
+
+ 
+
+首先将*.tar.gz解压
+
+tar -xzvf *.tar.gz
+假设得到的文件夹为java
+
+将其移动到/usr/中
+
+sudo mv java /usr/local
+然后设置环境变量：
+
+sudo vim /etc/profile
+打开文件
+
+在结尾处输入：
+
+export JAVA_HOME=/usr/local/java
+export JRE_HOME=/usr/local/java/jre　
+export CLASSPATH=.:$JAVA_HOME/lib:$JRE_HOME/lib:$CLASSPATH
+export PATH=$JAVA_HOME/bin:$JRE_HOME/bin:$PATH
+通过这一步将我们安装的jdk加入java选单。
+
+update-alternatives --config java
+选择默认的jdk
+
+java -version

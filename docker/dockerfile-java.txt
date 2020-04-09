@@ -1,0 +1,10 @@
+FROM centos:7
+
+ADD jdk-11.0.6_linux-x64_bin.tar.gz /usr/local/package
+
+ENV JAVA_HOME=/usr/local/jdk-11.0.6
+ENV PATH=$JAVA_HOME/bin:$PATH
+ENV CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ENV export LC_ALL=zh_CN.UTF-8
+
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' > /etc/timezone

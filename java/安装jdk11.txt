@@ -94,9 +94,33 @@ java-1.4.2-gcj-compat-1.4.2.0-40jpp.115
 wget https://download.oracle.com/otn/java/jdk/11.0.6+8/90eb79fb590d45c8971362673c5ab495/jdk-11.0.6_linux-x64_bin.tar.gz?AuthParam=1586415430_be67965ce9c5b35a8effed500e474a71
 
 
-怎样安装tar类型的JDK：
 
- 
+jdk11:
+执行安装命令
+tar -zxvf jdk-11.0.2_linux-x64_bin.tar.gz
+2.4、创建java.sh文件
+在 /etc/profile.d/ 文件夹下创建 java.sh 文件，可直接执行如下命令，系统自动创建该文件；
+
+vim /etc/profile.d/java.sh
+注意：网上都是吧环境变量放在/etc/profile文件里，这里不推荐，系统启动的时候 profile.d 文件夹也是会扫描的，而且便于删除
+
+ 2.5、在java.sh文件里添加环境变量
+注意： JAVA_HOME= 后面的文件路径别忘了修改哦！
+
+JAVA_HOME=/myProject/apache/java/jdk-11.0.2
+PATH=$PATH:$JAVA_HOME/bin
+export JAVA_HOME PATH
+ 如下图，以 # 开头的请忽略，遇到的坑，留着做警示！
+
+:wq          // 保存
+
+2.6、使java.sh文件生效，执行如下命令！
+source /etc/profile.d/java.sh
+2.7、验证jdk
+java -version 
+
+
+怎样安装tar类型的JDK：
 
 首先将*.tar.gz解压
 
@@ -120,6 +144,3 @@ export PATH=$JAVA_HOME/bin:$JRE_HOME/bin:$PATH
 通过这一步将我们安装的jdk加入java选单。
 
 update-alternatives --config java
-选择默认的jdk
-
-java -version

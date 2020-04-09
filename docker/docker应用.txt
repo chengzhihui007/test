@@ -4,6 +4,51 @@ systemctl daemon-reload
 
 systemctl restart docker.service
 
+批量删除：当你的主机上存在很多镜像，需要批量删除时，可以使用此方法。
+docker image -q     #列出所有的镜像ID
+docker rmi `docker image -q`   #删除所有的镜像
+
+针对tag镜像的删除：使用docker rmi 镜像id 删除时报错
+可以使用docker rmi  REPOSITORY:TAG 方式删除
+
+docker ps -a
+该命令的含义是查看所有的容器,包括未运行的容器
+执行命令docker rm eca596ce0f9d 删除该容器. 其中eca596ce0f9d为容器的id
+
+
+
 将springboot 项目打包 成docker镜像
 参考网址：https://blog.csdn.net/keepd/article/details/80569797
+
+Dockerfile
+
+#指定构成镜像的基础镜像源，如这个项目需要依赖jdk环境 https://hub.docker.com可以在官方网站上找
+FROM java:8-alpine
+#复制本地文件到目标容器的系统文件中
+ADD yanger-9999.jar app.jar
+#容器对外映射的端口
+EXPOSE 8080
+配置容器启动后执行的命令
+ENTRYPOINT ["java","-jar","/app.jar"]
+
+-----------
+
+docker build -t 跟你想要的镜像名称
+
+运行
+docker run -d -p 8888:8080 yanger
+
+查看Docker容器中的日志信息， docker logs 容器名称
+ docker logs mynginx
+ 
+打印容器中的日志信息并形成文件
+ docker logs mynginx | cat $1 > /home/myngnx.log
+
+进入容器操作
+ docker exec -it mynginx bash 
+
+
+
+
+
 

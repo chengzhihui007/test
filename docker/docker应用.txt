@@ -73,6 +73,9 @@ docker login
 
 docker push qy9527/jdk11:latest
 
+运行镜像命令
+docker run -it qy9527/jdk11:latest /bin/bash
+
 进入容器命令
 docker exec -it [containerId] /bin/bash
 

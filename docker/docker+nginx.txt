@@ -1,1 +1,63 @@
 
+参考网址：https://zhuanlan.zhihu.com/p/105758497
+
+具体部署步骤如下：
+分别拉取nginx镜像、Tomcat镜像
+docker pull nginx
+docker pull tomcat
+查看Linux宿主机下的镜像详情
+[root@bogon ~]# docker images
+配置nginx反向代理
+在宿主机创建nginx目录
+mkdir -p /data/nginx/{conf,conf.d,html,log}
+[root@bogon nginx]# pwd
+/data/nginx
+[root@bogon nginx]# ll
+总用量 0
+drwxr-xr-x. 2 root root 45 2月   7 17:42 conf
+drwxr-xr-x. 3 root root 34 2月   7 15:20 html
+drwxr-xr-x. 2 root root 39 2月   7 17:43 logs
+
+配置nginx反向代理服务器地址
+server {
+        listen       8090;
+        server_name  localhost;
+       # root         /usr/share/nginx/html;
+
+        # Load configuration files for the default server block.
+       #   include /etc/nginx/default.d/*.conf;
+
+        location / {
+        proxy_pass http://localhost;
+        }
+        
+            upstream localhost{
+                server 192.168.1.90:8071 weight=1;
+                server 192.168.1.90:8072 weight=1;
+    }
+nginx配置文件配置好后，就可以启动docker容器的nginx镜像，加载刚才宿主机下的nginx.conf配合文件启动nginx。命令如下：
+docker run  --name mynginx -d -p 80:8080 --restart=always --privileged=true -v /data/nginx/html:/usr/share/nginx/html -v /data/nginx/conf/nginx.conf:/etc/nginx/nginx.conf -v /data/nginx/conf.d:/etc/nginx/conf.d  -v /data/nginx/logs:/var/log/nginx nginx
+
+ps:   提示没有权限时，添加这个： --privileged=true
+
+启动docker的tomcat镜像，这里我以两个tomcat集群示例。启动命令：
+tomcat服务器1：
+docker run -d --name=Application-server1 -p 8071:8080 tomcat
+tomcat服务器2:
+docker run -d --name=Application-server2 -p 8072:8080 tomcat
+把打包的项目放到webapps下即可。这里简单示例：
+[root@bogon conf]# docker exec -it Application-server1 bash
+root@c42ed9de5100:/usr/local/tomcat# cd webapps
+root@c42ed9de5100:/usr/local/tomcat/webapps# pwd
+/usr/local/tomcat/webapps
+root@c42ed9de5100:/usr/local/tomcat/webapps# cd index/
+root@c42ed9de5100:/usr/local/tomcat/webapps/index# cat index.html
+<!DOCTYPE html>
+<html>
+    <head>
+         <title>Application-server1</title>
+    </head>
+    <body>
+         Application-server1
+    </body>
+</html>

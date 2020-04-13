@@ -7,6 +7,10 @@ docker pull nginx
 docker pull tomcat
 查看Linux宿主机下的镜像详情
 [root@bogon ~]# docker images
+进入容器内：
+docker run -itd mynginx
+NEW_PORT:OLD_PORT
+
 配置nginx反向代理
 在宿主机创建nginx目录
 mkdir -p /data/nginx/{conf,conf.d,html,log}

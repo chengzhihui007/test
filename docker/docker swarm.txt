@@ -1,2 +1,476 @@
-参考网址：https://www.cnblogs.com/zhujingzhi/p/9792432.html
+参考网址：https://www.cnblogs.com/zhujingzhi/p/9792432.html （V.1.13之前版本）
+https://www.cnblogs.com/linyaonie/p/11238420.html(V1.13之后版本)
+
+1、Docker 要求 CentOS 系统的内核版本高于 3.10 ，查看本页面的前提条件来验证你的CentOS 版本是否支持 Docker 。
+
+通过 uname -r 命令查看你当前的内核版本
+
+ $ uname -r
+2、使用 root 权限登录 Centos。确保 yum 包更新到最新。
+
+$ sudo yum update
+3、卸载旧版本(如果安装过旧版本的话)
+
+$ sudo yum remove docker  docker-common docker-selinux docker-engine
+
+安装依赖包
+yum -y install yum-utils device-mapper-persistent-data lvm2
+
+添加docker的CE版本的yum源配置文件
+curl https://download.docker.com/linux/centos/docker-ce.repo -o /etc/yum.repos.d/docker-ce.repo
+
+ll /etc/yum.repos.d/docker-ce.repo
+
+安装CE版本的docker
+yum -y install docker-ce
+
+systemctl start docker #启动docker
+
+systemctl enable docker #添加开机启动
+
+docker version #查看docker版本
+
+
+
+
+添加docker国内镜像源
+在开始学习docker之前，我们首先要更改一下docker的默认源镜像下载地址（默认是从国外下载，很慢），我们需要添加国内的源地址
+
+vim /etc/docker/daemon.json
+
+cat /etc/docker/daemon.json
+
+ 
+{
+"registry-mirrors":[ "https://registry.docker-cn.com" ]
+}
+systemctl daemon-reload
+
+systemctl restart docker
+
+
+
+
+三台都装这几个镜像
+docker pull centos
+
+docker pull nginx
+
+docker pull nginx:1.15
+
+docker pull nginx:1.14
+
+docker pull nginx:1.13
+
+docker pull nginx:1.12
+
+docker images
+
+DockerSwarm集群初始化与工作节点成员添加
+ 
+初始化docker swarm管理节点
+在Manager端进行如下操作
+
+docker swarm init --advertise-addr 192.168.200.113
+
+ 
+Swarm initialized: current node (sdib4e7xtr487nacdd12uc08h) is now a manager. #集群初始化：当前节点是一个管理节点
+To add a worker to this swarm, run the following command: #若要向该集群添加工作节点，请运行以下命令：
+docker swarm join --token SWMTKN-1-0rf33ext1xpauiyga7igrrru2acjp92rglgc3xyklu8cbfnv0q-15r4lcy1qm342clqps0hizfnu 192.168.200.113:2377 #docker swarm添加集群工作节点的命令字符串
+To add a manager to this swarm, run 'docker swarm join-token manager' and follow the instructions.
+
+
+在work01上
+在两个工作节点进行如下操作
+
+docker swarm join --token SWMTKN-1-0rf33ext1xpauiyga7igrrru2acjp92rglgc3xyklu8cbfnv0q-15r4lcy1qm342clqps0hizfnu 192.168.200.113:2377
+
+
+
+
+在work02上
+docker swarm join --token SWMTKN-1-0rf33ext1xpauiyga7igrrru2acjp92rglgc3xyklu8cbfnv0q-15r4lcy1qm342clqps0hizfnu 192.168.200.113:2377
+
+
+
+
+
+在Manager上查看所有节点成员信息
+docker node ls
+
+ 
+ID HOSTNAME STATUS AVAILABILITY MANAGER STATUS ENGINE VERSION
+njawag7xglmaziwf8o3rg4nbu * manager Ready Active Leader 18.09.1
+0u5cb5jt9n1n31bq7uhbzrcj1 worker01 Ready Active 18.09.1
+73h26e9b9ngwxmwtj0lc5r7jb worker02 Ready Active 18.09.1
+
+
+集群服务管理
+ 
+docker swarm集群管理需要所有集群节点进行时间同步
+cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime --->时区亚洲
+
+date +%F-%H-%M-%S --->查看时间
+
+
+
+查看docker service帮助信息
+docker service --help
+
+ 
+Usage: docker service COMMAND
+Manage services
+Commands:
+create Create a new service #创建一个新服务
+inspect Display detailed information on one or more services #查看服务详细信息
+logs Fetch the logs of a service or task #查看服务的日志
+ls List services #查看服务列表
+ps List the tasks of one or more services #查看服务的任务情况
+rm Remove one or more services #删除一个服务
+rollback Revert changes to a services configuration #服务配置回滚
+scale Scale one or multiple replicated services #调整服务副本数
+update Update a service #更新一个服务的副本资源
+
+
+
+
+集群服务的创建，查看与资源调整
+ 
+在Manager节点上启动服务
+docker service create --replicas 2 --name test centos ping www.baidu.com
+
+ 
+命令说明
+--replicas 2 ：启动两个服务的副本容器
+--name test ：服务的名字叫做test
+centos：启动的镜像的名字（本地没有会自动下载）
+ping www.baidu.com :副本里最后启动的命令进程
+
+
+查看服务的种类列表
+docker service ls
+
+查看test服务的副本任务情况
+docker service ps test
+
+查看test服务的详细信息--pretty test易读的方式显示
+docker service inspect --pretty test
+
+
+扩展服务实例数
+docker service scale test=3
+
+
+查看服务列表
+docker service ls
+
+
+查看具体服务副本信息
+docker service ps test
+
+对服务的副本进行资源限制
+docker service inspect --pretty test
+
+docker service update --limit-cpu=0.5 test
+
+docker service update --limit-memory 500M test
+
+
+查看test服务详细信息
+docker service inspect --pretty test
+
+
+查看服务的副本运行状态
+docker service ps test
+
+
+从上边我们发现服务的副本运行有停止的，我们可以通过过滤器，只查看运行状态的副本容器
+docker service ps -f 'desired-state=running' test
+
+
+集群副本的更新与回滚
+ 
+创建nginx-test服务，并启动三个副本
+docker service create --replicas 3 --name nginx-test nginx
+
+
+查看nginx-test服务的副本运行情况
+docker service ps nginx-test
+
+docker service ls
+
+
+将服务nginx-test的副本镜像更新成nginx:1.12版
+docker service update --image nginx:1.12 nginx-test
+
+
+
+查看服务列表
+docker service ls
+查看服务的副本运行信息
+docker service ps nginx-test
+
+将nginx-test的副本更新回滚到上一次
+docker service update --rollback nginx-test
+
+查看服务列表
+docker service ls
+
+查看nginx-test服务的
+docker service ps nginx-test
+
+集群副本的更新策略与回滚策略
+ 
+创建服务时设定副本的更新及回滚策略
+docker service create --name my_web --replicas 10 --update-delay 10s --update-parallelism 2 --update-failure-action continue --rollback-parallelism 2 --rollback-monitor 20s --rollback-max-failure-ratio .2 nginx:1.12
+
+ 
+命令说明
+docker service create \
+--name my_web \ #服务的名字
+--replicas 10 \ #一共启动10个服务副本
+--update-delay 10s \ #更新时10s间隔
+--update-parallelism 2 \ #更新时一次性更新两个任务
+--update-failure-action continue \ #更新失败时继续更新下一个
+--rollback-parallelism 2 \ #回滚时一次性更新两个任务
+--rollback-monitor 20s \ #回滚监控20s
+--rollback-max-failure-ratio .2 \ #回滚失败率20%
+nginx:1.12
+
+
+查看服务列表及副本运行状况
+docker service ls
+
+docker service ps my_web
+将服务my_web的副本镜像更新到nginx:1.13版
+docker service ls
+
+docker service update --image nginx:1.13 my_web
+
+docker service ls
+将服务my_web的副本更新回滚到上一个版本
+docker service ls
+
+docker service update --rollback my_web
+
+docker service ls
+
+集群服务的删除
+ 
+删除集群服务my_web
+docker service ls
+
+docker service rm my_web
+
+docker ps -a
+
+查看work01容器进程
+docker ps -a
+
+查看work02容器进程
+docker ps -a
+
+集群数据管理（数据持久化）
+ 
+以volume卷挂载容器的方式启动swarm集群
+docker service create --mount type=volume,src=nginx-vol,dst=/usr/share/nginx/html --replicas 3 --name test01 nginx
+
+docker volume ls
+
+ 
+local nginx-vol #数据卷有了
+docker service ls
+
+ll -d /var/lib/docker/volumes/nginx-vol
+
+
+以bind挂载容器的方式启动swarm集群
+ 
+在三台机器上都创建目录/app/www
+mkdir -p /app/www --->三台都需要创建目录
+
+集群方式启动bind挂载容器
+docker service create --mount type=bind,src=/app/www,dst=/usr/share/nginx/html --replicas 3 --name test02 nginx
+
+docker service ls
+
+docker service ps test02
+
+手动填写内容，并非交互查看容器的网页目录
+echo "xin" > /app/www/xin
+
+docker ps -a
+
+docker exec c28 ls /usr/share/nginx/html
+
+以NFS挂载容器的方式启动swarm集群
+ 
+三台机器上都安装NFS（work02作为服务端）
+yum -y install nfs-utils --->三台都需要安装
+
+mkdir -p /data/ --->work02上创建
+
+echo "welcome to yunjisuan" > /data/index.html --->work02创建网页文件
+
+在work02上修改nfs配置文件
+vim /etc/exports
+
+ 
+/data 192.168.200.0/24(rw,no_root_squash)
+cat /etc/exports
+
+systemctl start nfs
+
+netstat -antup | grep rpcbind
+
+showmount -e localhost
+
+在Manager上测试连接NFS
+showmount -e 192.168.200.115
+
+删除之前创建的容器
+docker service ls
+
+docker service rm test01
+
+docker service rm test02
+以NFS挂载容器的方式启动swarm集群
+docker volume ls
+
+ 
+docker service create --mount 'type=volume,src=web-vol,dst=/usr/share/nginx/html,volume-driver=local,volume-opt=type=nfs,volume-opt=device=:/data,"volume-opt=o=addr=192.168.200.115,vers=4,soft,timeo=180,bg,tcp,rw"' --name test01 nginx
+特别提示：给用一个没有创建过的卷（web-vol），要不会失败
+docker service ps test01
+
+docker volume ls
+
+df -hT | grep data
+查看之前添加的网页文件
+docker ps
+
+docker exec 030 ls /usr/share/nginx/html
+
+docker exec 030 cat /usr/share/nginx/html/index.html
+将集群服务test01的node节点扩充到3个
+docker service ps test01
+
+docker service scale test01=3
+
+docker service ps test01
+特别提示
+以自动挂载NFS共享存储的方式启动swarm集群容器，type类型只能是volume，卷的名字需要在启动时创建（启动前没有这个卷），因此创建volume的同时进行nfs共享挂载的话，需要同时创建一个opts.json的支持文件
+
+ls /var/lib/docker/volumes/web-vol/
+
+ 
+_data opts.json #就是这个文件
+ls /var/lib/docker/volumes/nginx-vol/
+
+ 
+_data #而之前创建好的volume卷没有这个文件
+
+集群服务发布
+在之前我们所启动的所有容器，如果想要访问，那么只能通过docker exec进去看。并不能如同生产环境中一下，让用户从外部访问，那么swarm的集群服务，如果发布能让用户从外部访问的容器呢？
+
+启动swarm集群并暴露宿主机88端口
+ 
+docker service create --mount 'type=volume,src=web-vol,dst=/usr/share/nginx/html,volume-driver=local,volume-opt=type=nfs,volume-opt=device=:/data,"volume-opt=o=addr=192.168.200.115,vers=4,soft,timeo=180,bg,tcp,rw"' --name test01 -p 88:80 --replicas 3 nginx
+
+查看swarm集群启动情况
+ss -antup | grep 88
+
+docker service ls
+
+进行访问测试
+curl 192.168.200.113:88
+
+curl 192.168.200.114:88
+
+curl 192.168.200.115:88
+
+集群统一配置管理
+ 
+创建一个自定义的nginx.conf
+vim nginx.conf
+
+cat nginx.conf
+
+ 
+worker_processes 1;
+events {
+worker_connections 1024;
+}
+http {
+include mime.types;
+default_type application/octet-stream;
+sendfile on;
+keepalive_timeout 65;
+server {
+listen 80;
+server_name www.yunjisuan.com;
+location / {
+root /usr/share/nginx/html;
+index index.html index.htm;
+}
+}
+}
+
+将配置文件加入docker config管理
+docker config ls
+
+docker config create nginx.conf nginx.conf
+
+docker config ls
+
+启动集群并应用集群配置管理保存的配置文件
+docker service create --name nginx --replicas 3 --config source=nginx.conf,target=/etc/nginx/nginx.conf -p 8080:80 nginx
+
+查看集群节点容器的配置文件应用情况
+docker service ls
+
+docker ps
+
+docker exec c5c cat /etc/nginx/nginx.conf
+
+清理服务后再次进行测试。
+docker service ls
+
+docker service rm nginx
+
+------------------------------
+清理服务后再次进行测试。
+docker service ls
+
+docker service rm nginx
+
+image_1d10r7lks1ipilef1c6pqmorv58g.png-42kB
+
+ 
+创建一个首页文件
+vim index.html
+
+cat index.html
+
+ 
+hello world!
+
+docker config create index.html index.html
+
+docker config ls
+
+
+将docker config管理的nginx.conf和index.html都应用进集群容器
+docker service create --name nginx --replicas 3 --config source=nginx.conf,target=/etc/nginx/nginx.conf --config source=index.html,target=/usr/share/nginx/html/index.html -p 8080:80 nginx
+
+curl 192.168.200.113:8080
+
+curl 192.168.200.114:8080
+
+curl 192.168.200.115:8080
+清除配置管理
+docker config ls
+
+docker config rm index.html
+
+docker config rm nginx.conf
 

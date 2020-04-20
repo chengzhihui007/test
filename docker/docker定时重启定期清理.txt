@@ -1,0 +1,17 @@
+
+查看某个用户的crontab任务
+crontab -l -u username
+
+crontab -e 
+# 适用于 CentOS 7，如果 Docker 正在服务，不会产生负面影响
+* * * * * systemctl start docker
+
+定期清理时间长了，宿主机会有很多不需要的镜像、停止的容器等，如果有需要，同样可以通过定时任务进行清理。# 每天凌晨 2 点清理容器和镜像
+0 2 * * * docker container prune --force && docker image prune --force
+# 更凶残地方式
+0 2 * * * docker system prune --force
+
+作者：HunterX
+链接：https://zhuanlan.zhihu.com/p/64528812
+来源：知乎
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。

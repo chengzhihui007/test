@@ -1,0 +1,197 @@
+参考网址：https://www.cnblogs.com/carriezhangyan/p/10831448.html
+        https://www.cnblogs.com/linyaonie/p/9857590.html
+ 
+ 需要先安装python
+ centos7安装部署jumpserver
+一、系统环境准备
+1、查看系统版本
+
+# cat /etc/redhat-release // 查看系统版本
+CentOS Linux release 7.5.1804 (Core)
+
+# uname -a // 查看系统信息
+Linux localhost.localdomain 3.10.0-862.el7.x86_64 #1 SMP Fri Apr 20 16:44:24 UTC 2018 x86_64 x86_64 x86_64 GNU/Linux
+
+2、关闭selinux和防火墙
+
+# getenforce //查看selinux的状态 
+   Disabled // 如果是Enable需要修改为Disabled，命令是“setenforce 0”
+
+# systemctl stop firewalld.service // 关闭防火墙
+ 
+
+3、修改字符集
+因为日志里打印了中文，否则肯能报错：input/output error问题
+
+# localedef -c -f UTF-8 -i zh_CN zh_CN.UTF-8
+# export LC_ALL=zh_CN.UTF-8
+# echo 'LANG="zh_CN.UTF-8"' > /etc/locale.conf
+
+二、准备Python3和Python虚拟环境
+1、安装依赖包
+ # yum -y install wget vim lrzsz xz gcc git epel-release python-pip python-devel mysql-devel automake autoconf sqlite-devel zlib-devel openssl-devel sshpass readline-devel
+
+2、编译安装
+# yum -y install python36 python36-devel
+
+// 如果下载速度很慢, 可以换国内源
+# wget -O /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/epel-7.repo
+# yum -y install python36 python36-devel
+
+3、建立 Python 虚拟环境
+CentOS 7 自带的是 Python2，而 yum 等工具依赖原来的 Python，为了不扰乱原来的环境我们来使用 Python 虚拟环境
+# cd /opt
+# python3.6 -m venv py3
+# source /opt/py3/bin/activate
+(py3) [root@localhost opt]#  //看到这一行的提示符代表成功，以后运行 Jumpserver 都要先运行以上 source 命令
+
+
+以下所有命令均在该虚拟环境中运行：
+
+三、安装 Jumpserver
+1、下载或 Clone 项目
+项目提交较多 git clone 时较大，你可以选择去 Github 项目页面直接下载zip包
+(py3) [root@localhost opt]# git clone --depth=1 https://github.com/jumpserver/jumpserver.git
+
+2、安装依赖 RPM 包
+(py3) [root@localhost opt]# cd /opt/jumpserver/requirements
+(py3) [root@localhost requirements]# yum -y install $(cat rpm_requirements.txt)
+
+//如果下载速度很慢, 可以换国内源
+# pip install --upgrade pip setuptools -i https://mirrors.aliyun.com/pypi/simple/
+# pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+
+3、安装python库依赖
+(py3) [root@localhost  opt]# pip install --upgrade pip setuptools
+(py3) [root@localhost  opt]# pip install -r requirements.txt
+
+4、安装 Redis, Jumpserver 使用 Redis 做 cache 和 celery broke
+(py3) [root@localhost  opt]# yum -y install redis
+(py3) [root@localhost  opt]# systemctl enable redis
+(py3) [root@localhost  opt]# systemctl start redis
+
+5、安装 MySQL
+(py3) [root@localhost  opt]# yum -y install mariadb mariadb-devel mariadb-server   //centos7下安装的是mariadb
+(py3) [root@localhost  opt]# systemctl enable mariadb
+(py3) [root@localhost  opt]# systemctl start mariadb
+
+6、创建数据库 Jumpserver 并授权
+(py3) [root@localhost  opt]# DB_PASSWORD=`cat /dev/urandom | tr -dc A-Za-z0-9 | head -c 24`  // 生成随机数据库密码
+(py3) [root@localhost  opt]# mysql -uroot -e "create database jumpserver default charset 'utf8'; grant all on jumpserver.* to 'jumpserver'@'127.0.0.1' identified by '$DB_PASSWORD'; flush privileges;"
+
+7、修改 Jumpserver 配置文件
+复制代码
+(py3) [root@localhost  opt]# cd /opt/jumpserver/
+(py3) [root@localhost  jumpserver]# cp config_example.yml config.yml
+(py3) [root@localhost  jumpserver]# SECRET_KEY=`cat /dev/urandom | tr -dc A-Za-z0-9 | head -c 50`   // 生成随机的SECRET_KEY
+(py3) [root@localhost  jumpserver]# echo "SECRET_KEY=$SECRET_KEY" >> ~/.bashrc
+(py3) [root@localhost  jumpserver]# BOOTSTRAP_TOKEN=`cat /dev/urandom | tr -dc A-Za-z0-9 | head -c 16`  // 生成随机BOOTSTRAP_TOKEN
+(py3) [root@localhost  jumpserver]# echo "BOOTSTRAP_TOKEN=$BOOTSTRAP_TOKEN" >> ~/.bashrc
+(py3) [root@localhost  jumpserver]# sed -i "s/SECRET_KEY:/SECRET_KEY: $SECRET_KEY/g" /opt/jumpserver/config.yml
+(py3) [root@localhost  jumpserver]# sed -i "s/BOOTSTRAP_TOKEN:/BOOTSTRAP_TOKEN: $BOOTSTRAP_TOKEN/g" /opt/jumpserver/config.yml
+(py3) [root@localhost  jumpserver]# sed -i "s/# DEBUG: true/DEBUG: false/g" /opt/jumpserver/config.yml
+(py3) [root@localhost  jumpserver]# sed -i "s/# LOG_LEVEL: DEBUG/LOG_LEVEL: ERROR/g" /opt/jumpserver/config.yml
+(py3) [root@localhost  jumpserver]# sed -i "s/# SESSION_EXPIRE_AT_BROWSER_CLOSE: false/SESSION_EXPIRE_AT_BROWSER_CLOSE: true/g" /opt/jumpserver/config.yml
+(py3) [root@localhost  jumpserver]# sed -i "s/DB_PASSWORD: /DB_PASSWORD: $DB_PASSWORD/g" /opt/jumpserver/config.yml
+复制代码
+
+8、运行 Jumpserver
+(py3) [root@jumpserver jumpserver]# cd /opt/jumpserver
+(py3) [root@jumpserver jumpserver]# ./jms start all -d // 新版本更新了运行脚本，使用方式./jms start|stop|status|restart all  后台运行请添加 -d 参数
+五、安装web Terminal 前端 ：luna  
+Luna 已改为纯前端, 需要 Nginx 来运行访问
+访问(https://github.com/jumpserver/luna/releases)下载对应版本的 release 包, 直接解压不需要编译
+1、下载并解压luna
+(py3)[root@jumpserver coco]# cd /opt
+(py3)[root@jumpserver opt]# wget https://github.com/jumpserver/luna/releases/download/1.4.10/luna.tar.gz
+(py3)[root@jumpserver opt]# tar -xvf  luna.tar.gz
+(py3)[root@jumpserver opt]# chown -R root:root luna
+
+六、配置 Nginx 整合各组件
+ 1、安装nginx
+复制代码
+(py3)[root@jumpserver opt]# yum install yum-utils
+(py3)[root@jumpserver opt]# vi /etc/yum.repos.d/nginx.repo
+    [nginx-stable]
+    name=nginx stable repo
+    baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
+    gpgcheck=1
+    enabled=1
+    gpgkey=https://nginx.org/keys/nginx_signing.key
+
+(py3)[root@jumpserver opt]# yum makecache fast
+(py3)[root@jumpserver opt]# yum install -y nginx
+(py3)[root@jumpserver opt]# rm -rf /etc/nginx/conf.d/default.conf
+(py3)[root@jumpserver opt]# systemctl enable nginx
+复制代码
+
+2、准备配置文件，修改/etc/nginx/conf.d/jumpserver.conf  
+复制代码
+(py3)[root@jumpserver opt]# vim /etc/nginx/conf.d/jumpserver.conf  
+
+server {
+    listen 80;
+    client_max_body_size 100m;  # 录像及文件上传大小限制
+    location /luna/ {
+        try_files $uri / /index.html;
+        alias /opt/luna/;  # luna 路径, 如果修改安装目录, 此处需要修改
+    }
+    location /media/ {
+        add_header Content-Encoding gzip;
+        root /opt/jumpserver/data/;  # 录像位置, 如果修改安装目录, 此处需要修改
+    }
+
+    location /static/ {
+        root /opt/jumpserver/data/;  # 静态资源, 如果修改安装目录, 此处需要修改
+    }
+
+    location /socket.io/ {
+        proxy_pass       http://localhost:5000/socket.io/;
+        proxy_buffering off;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        access_log off;
+    }
+
+    location /coco/ {
+        proxy_pass       http://localhost:5000/coco/;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        access_log off;
+    }
+
+    location /guacamole/ {
+        proxy_pass       http://localhost:8081/;
+        proxy_buffering off;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        access_log off;
+    }
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+复制代码
+
+3、运行 Nginx
+(py3)[root@jumpserver opt]# nginx -t   # 确保配置没有问题, 有问题请先解决
+
+// centos 7
+(py3)[root@jumpserver opt]# systemctl start nginx
+(py3)[root@jumpserver opt]# systemctl enable nginx
+
+
+

@@ -1,0 +1,169 @@
+参考网址：https://www.cnblogs.com/linyaonie/p/9846615.html
+
+
+准备工作
+rpm -qa | grep -w bind bind-chroot ===>需要安装2个软件包
+(1)安装软件
+yum install bind bind-utils bind-chroot -y
+
+主配置文件
+vim /etc/named.conf ===>DNS主配置文件(安装完软件包就有主配置文件)
+
+主配置文件详解
+ 
+options {
+listen-on port 53 { 192.168.200.67; }; ===>监听IP地址
+listen-on-v6 port 53 { ::1; }; ===>注释掉,在DNS配置文件//代表注释
+directory "/var/named"; ===>DNS目录位置
+dump-file "/var/named/data/cache_dump.db"; ===>DNS数据文件位置
+memstatistics-file "/var/named/data/named_mem_stats.txt"; ===>DNS缓存数据文件位置
+allow-query { any; }; ===>允许连接我的IP地址范围,any代表允许所有人
+forwarders { 202.106.0.20; }; ===>告诉去找哪个域名,可写可不写
+recursion yes; ===>是否迭代查询
+dnssec-enable no; ===>改成NO
+dnssec-validation no; ===>改成NO
+dnssec-lookaside auto; ===>一些验证,注释掉
+zone "." IN {
+type hint;
+file "named.ca"; ===>代表去点域名找
+
+
+核对DNS服务端主配置文件是否错误
+named-checkconf /etc/named.conf ===>核对不提示任何信息代表成功
+
+etc/init.d/named start(如果提示不存在则执行: systemctl start named) ===>启动DNS服务
+
+netstat -antup | grep 53 ===>查询端口是否开启
+
+
+DNS客户端临时配置文件
+vim /etc/resolv.conf
+
+nameserver 192.168.200.67 ===>临时修改服务器配置跟DNS主配置文件IP一样,重启网卡自然被原先的文件覆盖
+
+ping www.baidu.com ===>ping一下检查服务是否正确,卡是正常,因为是在找点域名
+
+
+
+DNS主域名解析服务搭建
+vim /etc/named.conf ===>DNS主配置文件===>DNS主配置文件(安装完软件包就有主配置文件)
+
+与 缓存式 区别
+dnssec-enable no; ===>注释掉
+dnssec-validation no; ===>注释掉
+dnssec-lookaside auto; ===>注释掉
+
+zone "." IN {
+        type hint;
+        file "named.ca";
+};
+
+zone "yunjisuan.com" IN {
+        type hint;
+        file "yunjisuan.com.zone";
+};
+
+正向解析记录本文件
+cd /var/named/named.empty ===>记录本文件
+
+cp -p named.empty yunjisuan.com.zone ===>完全复制记录本文件各项属性
+
+
+配置详解
+$TTL 3H
+@       IN SOA  yunjisuan.com. root.nsl.yunjisuan.com. (
+                                        20181022        ; serial
+                                        1D      ; refresh
+                                        1H      ; retry
+                                        1W      ; expire
+                                        3H )    ; minimum
+        NS      nsl.yunjisuan.com
+        A       192.168.1.79
+nsl IN  A 192.168.1.79
+www IN A 192.168.1.2
+news IN  A 192.168.1.1
+bbs IN CNAME news
+* IN  A 8.8.8.8
+
+$TTL 3H ===>时间周期
+yunjisuan.com. root.ns1.yunjisuan.com. ===>解析文件是以点结尾
+20181022 ; serial ===>当前日期,也是比对日期
+NS ns1.yunjisuan.com. ===>解析服务器的位置
+ns1 A 192.168.200.66 ===>当前解析记录IP
+bbs CNAME news ===>别名记录,bbs跟news是一个IP
+* A 192.168.200.68 ===>其他的所有找输入的IP地址
+
+
+
+核对正向解析DNS服务端主配置文件是否错误
+named-checkzone yunjisuan.com yunjisuan.com.zone ===>核对提示OK代表成功
+
+/etc/init.d/named start  (systemctl start named) ===>启动DNS服务
+
+DNS客户端临时配置文件
+vim /etc/resolv.conf
+
+search localdomain
+nameserver 192.168.200.67 ===>临时修改服务器配置跟DNS主配置文件IP一样,重启网卡自然被原先的文件覆盖
+
+
+ping www.yunjisuan.com ===>ping一下检查服务是否正确,卡是正常,因为是在找点域名
+
+ping ns1.yunjisuan.com ===>ping一下检查服务是否正确,卡是正常,
+
+
+
+反向解析配置文件
+vim /etc/named.conf ===>DNS主配置文件===>DNS主配置文件(安装完软件包就有主配置文件)
+
+dnssec-enable no; ===>注释掉
+dnssec-validation no; ===>注释掉
+dnssec-lookaside auto; ===>注释掉
+
+zone "." IN {
+        type hint;
+        file "named.ca";
+};
+
+zone "200.168.1.inaddr.arpa" IN {
+        type hint;
+        file "192.168.1.arpa";
+};
+
+反向解析记录本文件
+cd /var/named/named.empty ===>记录本文件
+
+cp -p named.empty 192.168.200.arpa ===>完全复制记录本文件各项属性
+
+$TTL 3H
+@ IN SOA yunjisuan.com. root.ns1.yunjisuan.com. (
+20181022 ; serial
+1D ; refresh
+1H ; retry
+1W ; expire
+3H ) ; minimum
+NS ns1.yunjisuan.com.
+2 PTR www.yunjisuan.com.
+67 PTR ns1.yunjisuan.com.
+配置详解
+$TTL 3H ===>时间周期
+yunjisuan.com. root.ns1.yunjisuan.com. ( ===>解析文件是以点结尾
+20181022 ; serial ===>当前日期,也是比对日期
+NS ns1.yunjisuan.com. ===>解析服务器的位置
+PTR www.yunjisuan.com. ===>已知IP反推域名,PTR反向解析
+
+DNS反向解析客户端临时配置文件
+yum -y install bind-utils ===>安装完软件包就有nslookup命令
+
+which nslookup
+
+vim /etc/resolv.conf
+
+nameserver 192.168.200.67 ===>临时修改服务器配置跟DNS主配置文件IP一样,重启网卡自然被原先的文件覆盖
+
+nslookup www.yunjisuan.com ===>反向解析为了追踪黑客位置
+
+nslookup ns1.yunjisuan.com
+
+nslookup 192.168.200.67
+

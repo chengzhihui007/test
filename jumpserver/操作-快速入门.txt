@@ -1,6 +1,6 @@
 参考网址： https://docs.jumpserver.org/zh/docs/quick_start.html
           https://www.cnblogs.com/linyaonie/p/9857590.html
-
+https://blog.csdn.net/weixin_42758707/article/details/100999792
 
 jumpserver基本使用
  

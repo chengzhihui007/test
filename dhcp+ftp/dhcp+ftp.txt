@@ -1,2 +1,0 @@
-DHCP 参考网址： https://www.cnblogs.com/linyaonie/p/9863150.html
-FTP 参考网址： https://www.cnblogs.com/linyaonie/p/9863165.html

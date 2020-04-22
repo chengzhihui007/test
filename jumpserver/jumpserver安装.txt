@@ -2,7 +2,9 @@
         https://www.cnblogs.com/linyaonie/p/9857590.html
         https://docs.jumpserver.org/zh/docs/step_by_step.html
          https://docs.jumpserver.org/zh/docs/setup_by_fast.html
-         
+        
+
+centos7 安装： https://docs.jumpserver.org/zh/docs/setup_by_centos7.html 
          极速安装
 说明
 

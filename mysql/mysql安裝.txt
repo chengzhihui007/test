@@ -1,12 +1,17 @@
 参考网址：https://www.linuxidc.com/Linux/2016-09/135288.htm
 MYSQL的YUM源http://dev.mysql.com/downloads/repo/yum/  
 yum repolist all | grep mysql
+安装下载的rpm
 yum localinstall XXX.rpm
+
+校验是否安装成功
 yum repolist enabled | grep "mysql.*-community.*"
+
 可以修改vim /etc/yum.repos.d/mysql-community.repo源，改变默认安装的mysql版本。修改enabled=1为安装,enabled=0为不安装。
 比如要安装5.6版本，将5.7源的enabled=1改成enabled=0。然后再将5.6源的enabled=0改成enabled=1即可.
 效果图：
 	https://www.linuxidc.com/upload/2016_09/160918124758197.jpg
+安装：
 yum install mysql-community-server
 
 systemctl start mysqld

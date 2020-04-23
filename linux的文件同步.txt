@@ -1,0 +1,88 @@
+参考网址： https://www.cnblogs.com/linyaonie/p/9863210.html
+
+
+inotify事件监控工具
+inotify事件监控工具
+ 
+rsync + inotify 组合的起源
+image_1cpgis424sr01v9j90k115f1povp.png-59.8kB
+
+ 
+inotify优缺点
+优点:监控文件系统事件变化，通过同步工具实现实时数据同步 
+缺点:并发如果大于200个文件（10-100k）,同步就会有延迟 
+每次都是全部推送一次,但确实是增量的,也可以只同步变化的文件,不变化的不理。 
+因为监控到事件后,调用rsync同步是单进程的,而sersync为多进程同步。
+
+ 
+inotify参数
+image_1cpgl4ise17vk12mj1ioog7fu4h45.png-46.3kB
+
+ 
+-e指定参数事件
+image_1cpgl5o9v16kq25b19g2adc7ck4i.png-62.1kB
+
+ 
+inotify监控搭建与测试
+首先查看有没有wget命令,没有则需要先安装
+
+image_1cpgjil1p9nnniv14c9nq18j529.png-21.5kB
+
+在去/etc/yum.repos.d下备份源光盘yum文件到bak目录
+
+image_1cpgjnhrtk0r1jeh1si4c251nid2m.png-23.8kB
+
+命令wget -O /etc/yum.repos.d/epel.repohttp://mirrors.aliyun.com/repo/epel-6.repo从阿里云下载 
+需要能上网才可以从网上下载
+
+image_1cpgju85sp1g10e21q7b1g8ql9v9.png-50.6kB
+
+下载完成后,清空yum缓存,生成新的云yum缓存
+
+image_1cpgkgfdt1ee719041h6j1e1mpu73b.png-52.8kB
+
+安装inotify-tools软件包,命令是inotifywait
+
+image_1cpgkn0qh9g3m281rui1lni4343o.png-15.2kB
+
+ 
+单条件监控inotifywait -mrq --timefmt '%y %m %d %H %M' --format '%T %w%f' -e create /backup
+inotifywait是ionotify的命令工具
+-mrq:-q只输入简短信息,-r递归监控整个目录包括子目录,-m进行不间断持续监听
+--timefmt:指定时间输出格式%y=年 %m=月 %d=日 %H=时 %M=分 %F=年月日
+--format:指定输出信息的格式%T=时间 %w=路径 %f=文件名
+-e create:制定监控的事件类型,监控创建create事件
+image_1cpgnaskjjso8sj148f1fl9ik69.png-13.3kB
+image_1cpgncqe11jbgvn1ik1gmadnnm.png-12kB 
+image_1cpgnd4otfmm1sjf1nb96ug42a13.png-15.8kB
+
+ 
+多条件监控:inotifywait -mrq --format '%w%f' -e create,close_write,delete /backup
+inotifywait是ionotify的命令工具
+-mrq:-q只输入简短信息,-r递归监控整个目录包括子目录,-m进行不间断持续监听
+--format:指定输出信息的格式%w=路径 %f=文件名
+-e create,close_write,delete:带创建事件,写关闭事件,删除事件
+vim对写关闭事件也好用,不过会先生成缓存文件
+image_1cpgnq5ba1hrr1ncp12od12kcf6n1g.png-9.7kB 
+image_1cpgntklgjvesg04ft20j1bos1t.png-24.3kB 
+image_1cpgntt2g1m951i7a1klm1iv8ht82a.png-47kB
+
+__
+
+ 
+inotify实时监控脚本
+#!/bin/bash 
+Path=/data 
+backup_Server=172.16.1.41 
+/usr/bin/inotifywait -mrq --format '%w%f' -e create,close_write,delete /data | while read line 
+do 
+if [ -f $line ];then rsync -az $line --delete rsync_backup@$backup_Server::nfsbackup --password-file=/etc/rsync.password else cd $Path &&\ 
+rsync -az ./ --delete rsync_backup@$backup_Server::nfsbackup --password-file=/etc/rsync.password 
+fi 
+done
+
+ 
+脚本加入开机启动
+ 
+echo "/bin/sh /server/scripts/inotify.sh &" >> /etc/rc.local
+一个& 代表从后台开始运行该条命令

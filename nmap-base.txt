@@ -50,8 +50,28 @@ go:
    构造一个扫描 192.168.106.128 的 ARP 请求数据包并将其发送出去：
      srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.1.54"),timeout=2)
      
-使用wireshark抓包：
+ 基于ARP 的活跃主机发现技术 
+ IARP位于TCP/IP协议族中的网络层
+ 基于 ARP 的扫描是一种最为高效的方法，但是它的局限性也很明显，只能够扫描同一以太网内的主机。
+ ans,unans=srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.1.54"),timeout=2)
+ans.summary(lambda(s,r):r.sprintf("%ARP.psrc% is alive"));
 
 
+基于icmp 的活跃主机发现技术 
+ICMP也位于TCP/IP协议族中的网络层
+ICMP中提供了多种报文，这些报文又可以分成两大类：差错报文和查询报文。
+基于 ICMP 的扫描是一种很常见的方法，相比 ARP 只能应用于以太网环境中的特点， 这种方法的应用范围要广泛得多。
+无论是以太网还是互联网都可以使用这种方法。
+但是基于ICMP的扫描的缺陷也很明显，由于大量网络设备，例如很多路由器、防火墙等都对 ICMP进行了屏蔽，这样就会导致扫描结果不准确。
 
+ans.summary(lamb,unans=sr(IP(dst="192.168.1.54")/ICMP());
+ans.summary(lambda(s,r):r.sprintf("%IP.src% is alive"));
+
+基于TCP的活跃主机发现技术
+TCP和ARP、ICMP等协议并不处于同一层，而是位于它们的上一层传输层。
+第一步：客户端发送 SYN ( SEQ=x） 数据包给服务器端，进入 SYN_SEND 状态
+第二步：服务器端收到 SYN 数据包， 回应一个 SYN (SEQ=y )+ACK(ACK=x+ 1 ）数据包， 进入 SYN_RECV状态
+第三步：客户端收到服务器端的SYN 数据包，回应一个 ACK(ACK=y+1 ）数据包，进入 Established 状态。
+ans,unans=sr(IP(dst="192.168.1.54")/TCP(dport=80,flags="S"))
+ans.summary(lambda(s,r):r.sprintf("%IP.src%  is alive"))
 

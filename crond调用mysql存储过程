@@ -1,0 +1,26 @@
+
+参考网址：
+      https://blog.51cto.com/milenovo/1692847
+      https://www.runoob.com/w3cnote/linux-crontab-tasks.html
+      https://www.cnblogs.com/emanlee/p/10293762.html
+      
+ 调用mysql 的存储过程shell:
+
+
+#!/bin/bash
+#0 1 * * * sh /home/test/rj_proc.sh
+host1=127.0.0.1
+user=system
+passwd=linux
+port=3306
+mysql -h${host1} -u${user} -p${passwd} -P${port} -e "call  库名data.过程名pro" ;
+
+----
+crontab -e
+* * * * *  分、时、日、月、周
+每天 10点30分  20点30分 运行 
+*/30 10,20 * * * /home/test/test.sh
+
+重启 crond
+systemctl restart crond
+

@@ -1,0 +1,7 @@
+参考网址： https://mp.weixin.qq.com/s/FL4j1FGnuTFLoe7KdchYsQ
+
+1.全局图
+HAproxy 来做 RabbitMQ 负载均衡和高可用，用 Keepalived 来保证 HAproxy 的高可用。
+客户端通过VIP建立通信链路；通信链路通过Keeaplived的Master节点路由到对应的HAProxy之上；HAProxy通过负载均衡算法将负载分发到集群中的各个节点之上。正常情况下客户端的连接通过图中左侧部分进行负载分发。当Keepalived的Master节点挂掉或者HAProxy挂掉无法恢复，那么Backup提升为Master，客户端的连接通过图中右侧部分进行负载分发。
+如果你追求要更高的可靠性，可以加入多个Backup角色的Keepalived节点来实现一主多从的多机热备。当然这样会提升硬件资源的成本，该如何抉择需要更细致的考恒，一般情况下双机热备的配备已足够满足应用需求。
+

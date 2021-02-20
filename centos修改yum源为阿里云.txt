@@ -1,3 +1,5 @@
+https://developer.aliyun.com/mirror/centos?spm=a2c6h.13651102.0.0.3e221b11muQCU8
+
 cd  /etc/yum.repos.d
 mv CentOS-Base.repo CentOS-Base.repo.bak
 wget http://mirrors.aliyun.com/repo/Centos-7.repo

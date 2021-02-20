@@ -1,5 +1,5 @@
 参考网址: https://www.cnblogs.com/dingjiaoyang/p/5102827.html
-
+          https://blog.csdn.net/S852509769/article/details/85247360
 先查看 rpm -qa | grep java
 
 显示如下信息：

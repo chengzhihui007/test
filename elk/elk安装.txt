@@ -1,0 +1,11 @@
+参考网址：
+  https://www.cnblogs.com/yuhuLin/p/7018858.html
+  
+下载：
+  https://elasticsearch.cn/download/
+  
+ 问题：
+  emory locking requested for elasticsearch process but memory is not locked
+  https://blog.csdn.net/cbuy888/article/details/103166008
+  
+  

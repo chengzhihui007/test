@@ -1,0 +1,57 @@
+网址：https://blog.csdn.net/github_38924695/article/details/105348442
+
+1.安装elk
+1.1:获取最新的镜像：
+
+docker pull sebp/elk
+1.2:启动镜像
+
+docker run -d -e ES_JAVA_OPTS="-Xms256m -Xmx256m" -p 5601:5601 -p 5044:5044 -p 9200:9200 -p 9300:9300 -it --restart=always --name elk c21727ae794b
+
+启动后等会可以通过浏览器访问ip:5601及ip:9200查看是否已启动。–restart=always表示自启动
+如出现以下错误：
+max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144]
+解决：
+## 执行
+sysctl -w vm.max_map_count=262144
+
+编辑/etc/sysctl.conf，在里面加入：vm.max_map_count=262144
+
+
+1.3:修改配置
+
+## 进入容器
+docker exec -it elk /bin/bash
+## 编辑配置文件
+vim /etc/logstash/conf.d/02-beats-input.conf 
+
+
+编辑的内容如下:
+
+input {
+    tcp {
+        port => 5044
+        codec => json_lines
+    }
+}
+output{
+    elasticsearch {
+    hosts => ["localhost:9200"]
+    index => "ruizhi-log-%{+YYYY.MM.dd}"
+    }
+}
+退出后，重启elkdocker restart elk，访问9200和5601可以看见如下界面
+如果希望将页面设置为中文，则在docker中设置kibana.yml中的语言即可。
+
+## 进入elk
+docker exec -it elk /bin/bash
+## 找到kibana.yml（可以用whereis kibana.yml查询）
+cd /opt/kibana/config
+在yml中加上以下配置：
+i18n.locale: "zh-CN"
+重启即可。
+
+如果出现You'll need to index some data into Elasticsearch before you can create an index pattern或者输入后下一步为灰，这是因为里面没有数据导致的，在命令行输入一个假的数据即可。
+
+curl -H "Content-Type: application/json" -XPOST 'http://192.168.80.129:9200/ruizhi-log-2020-04-25/test-log' -d 
+

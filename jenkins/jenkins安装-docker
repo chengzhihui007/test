@@ -1,0 +1,50 @@
+主机访问vitualbox 
+https://www.jianshu.com/p/b8038ca9fcb7
+
+docker 安装 
+jenkins 
+
+ https://blog.csdn.net/qq_37862114/article/details/123786059
+ 
+1.拉取镜像
+docker pull jenkins/jenkins:2.289.3-lts-centos
+
+2.创建本地数据卷
+
+mkdir jenkins_home
+1
+是为了映射镜像容器中/var/jenkins_home文件夹的内容
+3.修改文件夹的权限
+
+chmod 777 jenkins_home
+
+4.创建Jenkins容器并运行
+
+docker run -d --name lzl_jenkins -p 8040:8080 -p 50000:50000 -v /usr/jenkins_home/:/home/jenkins_home jenkins/jenkins:2.289.3-lts-centos
+
+-d 表示后台运行容器
+–name 给容器起一个名字
+-p 8040:8080 端口映射，8080端口有用，随便映射一个8040
+-v /usr/jenkins_home/:/var/jenkins_home 把后面的数据卷映射到前者
+浏览器输入ip:8040访问
+不建议使用docker 安装Jenkins 原因：
+
+Jenkins需要依赖Java、git、maven
+使用docker安装Jenkins，需要每次把Java、git、maven映射到Jenkins的容器中，比较麻烦
+
+centos7 直接安装Jenkins
+
+sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+yum install jenkins
+配置Jenkins接口
+
+vi /etc/sysconfig/jenkins
+1
+找到修改端口号：
+JENKINS_PORT=“8080”//8080端口不占用可以不修改
+
+启动Jenkins
+
+service jenkins start/stop/restart
+ 
